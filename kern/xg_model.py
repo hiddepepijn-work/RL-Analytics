@@ -29,6 +29,8 @@ FEATURES = [
     "op_doel", "t_doel", "ingang_x", "ingang_z", "mis_afstand",
     "verdediger_min_v", "verdediger_2e_v", "verdedigers_tussen", "verdedigers_in_doel", "verdediger_boost",
     "schutter_z", "schutter_boost", "aanvaller_dichtbij", "rank",
+    # rijrichting + snelheid (14 okt): aankomstmarge verdedigers op de balbaan, terugrijden, snelheid schutter
+    "verdediger_marge", "verdediger_2e_marge", "verdediger_terug_max", "schutter_snelheid",
 ]
 
 

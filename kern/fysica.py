@@ -51,3 +51,19 @@ def aankomst(auto_pos, auto_vel, boost, punten):
     else:
         v_eff[hoog] *= 0.8
     return REACTIE + afstand / v_eff
+
+
+def aankomst_richting(auto_pos, auto_vel, boost, punten):
+    """Als aankomst(), plus tijd om te draaien/af te remmen als de auto de verkeerde kant op rijdt.
+
+    Hoe harder je de andere kant op gaat, hoe duurder: bij volle snelheid haaks ~0,3 s, recht tegengesteld ~0,7 s
+    (afremmen + keren). Stilstaand draaien kost weinig.
+    """
+    t = aankomst(auto_pos, auto_vel, boost, punten)
+    snelheid = float(np.linalg.norm(auto_vel))
+    if snelheid < 100:
+        return t + 0.05
+    rel = punten[:, 1:4] - auto_pos[None, :]
+    richting = rel / np.maximum(np.linalg.norm(rel, axis=1, keepdims=True), 1)
+    cos = richting @ (np.asarray(auto_vel) / snelheid)
+    return t + (0.05 + 0.65 * (snelheid / MAX_AUTO)) * (1 - cos) / 2 + 0.05

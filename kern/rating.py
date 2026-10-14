@@ -10,7 +10,7 @@ Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld
   Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans) · demo +0,05 / −0,03
   Kickoffs   kickoff gewonnen/verloren ±0,06
   Balbezit   dreiging opbouwen met de bal (xT): bij elke touch binnen je balbezit de stijging van de zonewaarde
-             (kans dat je team binnen 10 s scoort vanaf die plek) boven het hoogste punt tot dan toe in dit bezit.
+             (kans dat je team binnen 10 s scoort vanaf die plek en balhoogte) boven het hoogste punt tot dan toe in dit bezit.
              Live per touch, dus niet pas aan het eind. Terug met de bal (boost pakken, opnieuw opzetten) kost niets;
              balverlies wordt elders afgerekend.
 Per onderdeel wordt de som vergeleken met wat een gemiddelde speler van de rank op dat moment heeft (normen uit de
@@ -57,7 +57,7 @@ ZONE_PAD = WORTEL / "data" / "modellen" / "zonewaarde.json"
 
 @cache
 def _zone():
-    return json.loads(ZONE_PAD.read_text(encoding="utf-8"))["grid"] if ZONE_PAD.exists() else None
+    return json.loads(ZONE_PAD.read_text(encoding="utf-8")) if ZONE_PAD.exists() else None
 
 
 def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: dict[str, int], kansen: dict | None = None) -> list[tuple]:
@@ -151,7 +151,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             for tt, ts, bp in touches:
                 if ts != wie or not bp or tt < t0 - 0.05 or tt > t1 + 0.05:
                     continue
-                w = float(zonewaarde.waarde(zone, bp[0], bp[1] * richting))
+                w = float(zonewaarde.waarde3(zone, bp[0], bp[1] * richting, bp[2]))  # met balhoogte
                 if hoogste is not None and w > hoogste + 0.003:
                     voeg(tt, wie, "Balbezit", w - hoogste, f"Dreiging opgebouwd (xT +{100 * (w - hoogste):.1f}%)")
                 hoogste = w if hoogste is None else max(hoogste, w)

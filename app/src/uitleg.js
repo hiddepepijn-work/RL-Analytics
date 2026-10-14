@@ -122,7 +122,7 @@ export const UITLEG = {
   'impact.r_verdedigen': 'Cijfer voor verdedigen: reddingen (gewogen naar de xGOT van het schot), minpunten voor fouten voor een tegengoal en voor tegengoals als laatste man.',
   'impact.r_duels': 'Cijfer voor duels: 50/50s, eerder of later bij de bal, whiffs en demo\'s.',
   'impact.r_kickoffs': 'Cijfer voor kickoffs: gewonnen of verloren kickoffs.',
-  'impact.r_balbezit': 'Cijfer voor balbezit: hoeveel dreiging je opbouwt met de bal (xT). Bij elke touch kijken we hoe groot de kans is dat je team binnen 10 s scoort vanaf die plek; stijgt die boven het hoogste punt van dit balbezit, dan krijg je het verschil. Live per touch. Rustig terug om boost te pakken of opnieuw op te zetten kost niets — pas balverlies telt, en dat staat bij Verdedigen.',
+  'impact.r_balbezit': 'Cijfer voor balbezit: hoeveel dreiging je opbouwt met de bal (xT). Bij elke touch kijken we hoe groot de kans is dat je team binnen 10 s scoort vanaf die plek én balhoogte (grond, laag, hoog); stijgt die boven het hoogste punt van dit balbezit, dan krijg je het verschil. Live per touch. Rustig terug om boost te pakken of opnieuw op te zetten kost niets — pas balverlies telt, en dat staat bij Verdedigen.',
   'impact.swing': 'Verandering in win-kans door jouw acties.',
   'impact.rapm': 'Eigen bijdrage los van teamgenoten, geschat over veel wedstrijden.',
   'impact.consistentie': 'Spreiding van je rating per wedstrijd: hoe constant je speelt.',

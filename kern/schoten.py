@@ -17,6 +17,7 @@ import numpy as np
 import subtr_actor as sa
 
 from kern import events as eventcache
+from kern.fysica import aankomst_richting
 
 WORTEL = Path(__file__).resolve().parent.parent
 FPS = 30
@@ -26,6 +27,7 @@ ZWAARTEKRACHT = -650.0
 MAX_AUTO = 2300.0
 LABEL_VENSTER = 4.0
 PROJECTIE_S = 4.0
+NIEUWSTE_KOLOM = "schutter_snelheid"  # cache zonder deze kolom is van een oudere featureversie (kern/bijwerken.py)
 
 BAL_KOL = ["BallRigidBody", "CurrentTime"]
 SPELER_KOL = ["PlayerRigidBody", "PlayerBoost"]
@@ -155,6 +157,15 @@ def schot_features(bp, bv, team, autos, sp, verdedigers, aanvallers, projectie=N
     punten, t_doel, ingang, mis = projectie or projecteer(bp, bv)
     baan = punten if t_doel is None else punten[punten[:, 0] <= t_doel]
     vs = sorted(vereiste_snelheid(autos[i], baan) for i in verdedigers if np.any(autos[i, :3]))
+    # Marge = (vroegste aankomst van de verdediger op de baan) − (moment dat de bal daar is), met rijrichting en boost.
+    # Negatief = hij kan er vóór de bal zijn. Over de baan tot het doel (of de hele projectie als hij naast gaat).
+    marges, terug = [], []
+    for i in verdedigers:
+        if not np.any(autos[i, :3]) or not len(baan):
+            continue
+        marges.append(float(np.min(aankomst_richting(autos[i, :3], autos[i, 3:6], autos[i, 6] / 2.55, baan) - baan[:, 0])))
+        terug.append(float(autos[i, 4]) * richting)  # snelheid richting het eigen (aangevallen) doel
+    marges.sort()
     return {
         "afstand": round(float(np.linalg.norm(doel[:2] - bp[:2]))),
         "hoek": round(float(np.degrees(np.arctan2(abs(bp[0]), max(DOEL_Y - bp[1] * richting, 1)))), 1),
@@ -169,6 +180,10 @@ def schot_features(bp, bv, team, autos, sp, verdedigers, aanvallers, projectie=N
         "verdediger_boost": round(float(np.mean([autos[i, 6] for i in verdedigers])) / 2.55) if verdedigers else 0,
         "schutter_z": round(float(autos[sp, 2])), "schutter_boost": round(float(autos[sp, 6]) / 2.55),
         "aanvaller_dichtbij": sum(1 for i in aanvallers if np.linalg.norm(autos[i, :2] - bp[:2]) < 2000),
+        "verdediger_marge": round(marges[0], 2) if marges else 9.0,
+        "verdediger_2e_marge": round(marges[1], 2) if len(marges) > 1 else 9.0,
+        "verdediger_terug_max": round(max(terug)) if terug else 0,
+        "schutter_snelheid": round(float(np.linalg.norm(autos[sp, 3:6]))),
     }
 
 

@@ -81,6 +81,26 @@ def features_bijwerken() -> tuple[int, int]:
             index_pad.write_text(json.dumps(index), encoding="utf-8")
     index_pad.write_text(json.dumps(index), encoding="utf-8")
 
+    # Schoten-cache van een oudere featureversie (mist de nieuwste kolom) → opnieuw berekenen
+    for stem, mid in index.items():
+        f = CACHE / "schoten" / f"{stem}.csv"
+        if mid.startswith("fout:") or not f.exists() or not f.stat().st_size:
+            continue
+        with f.open(encoding="utf-8") as h:
+            if schoten.NIEUWSTE_KOLOM in h.readline():
+                continue
+        p = next((WORTEL / "data" / "replays").glob(f"*/{stem}.replay"), None)
+        if p is None:
+            continue
+        try:
+            rijen = schoten.schoten_uit_replay(p, p.parent.name)
+            with f.open("w", newline="", encoding="utf-8") as h:
+                if rijen:
+                    w = csv.DictWriter(h, fieldnames=list(rijen[0].keys())); w.writeheader(); w.writerows(rijen)
+            nieuw += 1
+        except Exception as e:
+            log(f"schoten opnieuw {stem}: {type(e).__name__}")
+
     for soort in ("schoten", "passen"):
         delen, uniek = [], set()
         for stem, mid in index.items():

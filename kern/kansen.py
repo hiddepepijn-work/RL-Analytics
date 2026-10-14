@@ -62,13 +62,20 @@ def _tijd(e):
 
 
 def _stand(data: dict, t: float):
-    """Bal + auto's ([speler, 7] zoals in schoten.py: pos, snelheid (0), boost ruw) op tijd t."""
+    """Bal + auto's ([speler, 7] zoals in schoten.py: pos, snelheid, boost ruw) op tijd t.
+    Snelheid uit het verschil met 2 frames eerder (de JSON bewaart geen snelheden)."""
     f = min(len(data["t"]) - 1, max(0, bisect.bisect_left(data["t"], t)))
+    g = max(0, f - 2)
+    dt = max(data["t"][f] - data["t"][g], 1e-3)
     bal = np.array(data["bal"][f * 7: f * 7 + 3], dtype=float)
     autos = np.zeros((len(data["spelers"]), 7))
     for i, s in enumerate(data["spelers"]):
         r = s["frames"][f * SPELER_STRIDE: (f + 1) * SPELER_STRIDE]
+        q = s["frames"][g * SPELER_STRIDE: g * SPELER_STRIDE + 3]
         autos[i, :3] = r[:3]
+        if any(r[:3]) and any(q) and f > g:
+            v = (np.array(r[:3], float) - np.array(q, float)) / dt
+            autos[i, 3:6] = v if np.linalg.norm(v) < 3000 else 0  # sprong (respawn) → geen snelheid
         autos[i, 6] = r[7] * 2.55
     return bal, autos
 

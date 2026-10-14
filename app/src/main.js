@@ -37,23 +37,38 @@ try { bewaard = localStorage.getItem('thema') } catch {}
 zetThema(params.get('thema') ?? bewaard ?? 'arena')
 
 // ── Data ──
-async function start() {
-  const index = await (await fetch('/verwerkt/index.json')).json()
-  // Eigen wedstrijden eerst, nieuwste bovenaan
+// Wedstrijdlijst: eigen wedstrijden eerst, nieuwste bovenaan. Ververst zichzelf (nieuwe replays van de desktop-app
+// verschijnen zonder herladen); de wedstrijd die je bekijkt blijft staan.
+async function haalIndex() {
+  const index = await (await fetch('/verwerkt/index.json', { cache: 'no-cache' })).json()
   index.sort((a, b) => (b.eigen ? 1 : 0) - (a.eigen ? 1 : 0) || String(b.datum ?? '').localeCompare(String(a.datum ?? '')))
+  return index
+}
+
+function tekenLijst(index) {
+  const sleutel = index.map((r) => r.naam).join()
+  if (sleutel === staat.lijstSleutel) return
+  staat.lijstSleutel = sleutel
   $('replaylijst').innerHTML = index.map((r) => `
-    <li class="replay" data-bestand="${r.bestand}">
+    <li class="replay${r.bestand === staat.bestand ? ' actief' : ''}" data-bestand="${r.bestand}">
       <div class="replay-score"><span class="b">${r.score[0]}</span><span class="dim">–</span><span class="o">${r.score[1]}</span>
         ${r.eigen ? `<span class="replay-mijn ${r.uitslag === 'W' ? 'w' : 'v'}">${r.uitslag === 'W' ? 'W' : 'V'}</span>` : ''}<span class="replay-pl">${esc(playlistNaam(r))}</span></div>
       <div class="replay-sub">${esc(r.spelers.filter((s) => s.team === 0).map((s) => s.naam).join(', '))}</div>
     </li>`).join('')
+}
+
+async function start() {
+  const index = await haalIndex()
+  tekenLijst(index)
   $('replaylijst').onclick = (e) => { const li = e.target.closest('.replay'); if (li) { laad(li.dataset.bestand); toonView('wedstrijd') } }
+  setInterval(() => haalIndex().then(tekenLijst).catch(() => {}), 30000)
   const gekozen = index.find((r) => r.naam === params.get('replay')) ?? index[0]
   if (gekozen) await laad(gekozen.bestand)
 }
 
 async function laad(bestand) {
   document.querySelectorAll('.replay').forEach((li) => li.classList.toggle('actief', li.dataset.bestand === bestand))
+  staat.bestand = bestand
   $('viewerladen').classList.add('aan')
   if (!staat.data) { skelet($('hero'), { regels: 3 }); skelet($('kernstrip'), { regels: 1 }) }
   const data = await (await fetch(`/verwerkt/${bestand}`)).json()

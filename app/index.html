@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="nl" data-thema="arena">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RL Analytics</title>
+  <meta name="theme-color" content="#06070c" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+</head>
+<body>
+  <div class="app">
+    <aside class="zijbalk">
+      <div class="merk"><img src="/logo-woordmerk.png" alt="RL Analytics" class="merk-logo" /></div>
+      <nav class="nav">
+        <a class="nav-item" data-view="wedstrijd"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM12 5v14M4 12h3M17 12h3"/></svg>Wedstrijden</a>
+        <a class="nav-item" data-view="spelers"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Spelers</a>
+        <a class="nav-item" data-view="catalogus"><svg viewBox="0 0 24 24"><path d="M5 19V9M10 19V5M15 19v-7M20 19v-4"/></svg>Statistieken</a>
+        <a class="nav-item uit"><svg viewBox="0 0 24 24"><path d="M4 18l5-6 4 3 7-9"/></svg>Benchmarks</a>
+        <a class="nav-item" data-view="modellen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Modellen</a>
+      </nav>
+      <div class="zijbalk-kop">Recente replays</div>
+      <ul class="replaylijst" id="replaylijst"></ul>
+      <div class="zijbalk-voet">
+        <div class="zijbalk-kop">Stijl</div>
+        <div class="themas" id="themas">
+          <button data-thema="carbon" title="Carbon"><i></i>Carbon</button>
+          <button data-thema="arena" title="Arena"><i></i>Arena</button>
+          <button data-thema="editorial" title="Editorial"><i></i>Editorial</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="hoofd">
+      <div class="topbalk">
+        <div class="kruimel" id="kruimel">Wedstrijden</div>
+        <div class="zoek"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Zoek speler of replay</span><kbd>Ctrl K</kbd></div>
+        <button class="knop-primair">+ Replay toevoegen</button>
+      </div>
+
+      <div id="view-wedstrijd">
+        <header class="hero" id="hero"></header>
+        <div class="kernstrip" id="kernstrip"></div>
+        <nav class="tabs" id="tabs">
+          <button data-tab="overzicht">Overzicht</button>
+          <button data-tab="ratings">Ratings</button>
+          <button data-tab="teamstats">Teamstats</button>
+          <button data-tab="spelertabel">Spelers</button>
+          <button data-tab="positie">Positie</button>
+          <button data-tab="boost">Boost</button>
+          <span class="tabs-streep" id="tabsstreep"></span>
+        </nav>
+
+        <section class="tab" data-tab="overzicht">
+          <div class="overzicht">
+            <div class="kaart kaart-3d">
+              <div class="kaart-kop">
+                <h3>Replay</h3>
+                <div class="knoppen" id="camknoppen">
+                  <button data-cam="zij" class="actief">Overzicht</button>
+                  <button data-cam="bal">Balcam</button>
+                  <button data-cam="boven">Boven</button>
+                </div>
+              </div>
+              <div class="viewer" id="viewer"><div class="viewer-laden aan" id="viewerladen"><span class="spinner"></span><span>Wedstrijd laden…</span></div></div>
+              <div class="speelbalk">
+                <button class="speel" id="speel" aria-label="Afspelen">▶</button>
+                <span class="tijd num" id="tijd">5:00</span>
+                <span class="livestand"><span class="b" id="score0">0</span> <span class="dim">–</span> <span class="o" id="score1">0</span></span>
+                <span class="balsnelheid num" id="balsnelheid"></span>
+                <div class="snelheden" id="snelheden">
+                  <button data-v="0.5">½×</button><button data-v="1" class="actief">1×</button><button data-v="2">2×</button><button data-v="4">4×</button>
+                </div>
+              </div>
+              <div class="tijdlijn" id="tijdlijn">
+                <canvas id="momentum"></canvas>
+                <div class="tijdlijn-kop" id="tijdlijnkop"></div>
+              </div>
+              <div class="voetnoot">Momentum = terreindruk (balpositie per 10 s) · wordt goal-kans per frame zodra het xT-model er is</div>
+            </div>
+            <div class="kaart kaart-spelers">
+              <div class="kaart-kop"><h3>Spelers</h3><span class="sub info" data-stat="impact.rating">live cijfer · boost</span></div>
+              <div id="spelers"></div>
+            </div>
+            <div class="kaart kaart-schoten">
+              <div class="kaart-kop"><h3>Schotkaart</h3><span class="sub" id="schotensub"></span></div>
+              <svg id="schotkaart" viewBox="-4400 -5600 8800 11200" preserveAspectRatio="xMidYMid meet"></svg>
+              <div class="legenda"><span><i class="stip vol"></i>Goal</span><span><i class="stip"></i>Schot</span><span class="dim">cirkelgrootte = xG</span></div>
+            </div>
+            <div class="kaart kaart-xg">
+              <div class="kaart-kop"><h3>xG-verloop</h3><span class="sub num" id="xgsub"></span></div>
+              <svg id="xgverloop" viewBox="0 0 600 200" class="lijngrafiek"></svg>
+              <div class="legenda"><span><i class="stip vol" style="background:var(--blauw);border-color:var(--blauw)"></i>Blauw</span><span><i class="stip vol" style="background:var(--oranje);border-color:var(--oranje)"></i>Oranje</span><span class="dim">stip = goal · lijn = opgetelde xG</span></div>
+            </div>
+            <div class="kaart kaart-rating">
+              <div class="kaart-kop"><h3>Rating-verloop</h3><span class="sub info" data-stat="impact.rating">hoe werkt dit?</span></div>
+              <div id="ratingverloop" class="rv-houder"></div>
+            </div>
+            <div class="kaart kaart-goals">
+              <div class="kaart-kop"><h3>Doelpunten</h3></div>
+              <div class="goals" id="goals"></div>
+            </div>
+            <div class="kaart kaart-events">
+              <div class="kaart-kop"><h3>Gebeurtenissen</h3></div>
+              <ul class="eventlijst" id="eventlijst"></ul>
+            </div>
+          </div>
+        </section>
+        <section class="tab" data-tab="ratings" hidden><div id="ratingstab"></div></section>
+        <section class="tab" data-tab="teamstats" hidden><div class="teamstats" id="teamstats"></div></section>
+        <section class="tab" data-tab="spelertabel" hidden><div id="spelertabel"></div></section>
+        <section class="tab" data-tab="positie" hidden><div id="positie"></div></section>
+        <section class="tab" data-tab="boost" hidden><div id="boosttab"></div></section>
+      </div>
+      <div id="view-spelers" hidden></div>
+      <div id="view-catalogus" hidden></div>
+      <div id="view-modellen" hidden></div>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

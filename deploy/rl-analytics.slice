@@ -1,0 +1,9 @@
+# Gezamenlijke grens voor alle RL Analytics-diensten: Reisbouwer, Uurwerk en PixelQuest gaan altijd voor.
+[Unit]
+Description=RL Analytics (begrensd naast Reisbouwer/Uurwerk/PixelQuest)
+
+[Slice]
+CPUQuota=80%
+CPUWeight=20
+MemoryMax=2G
+IOWeight=20

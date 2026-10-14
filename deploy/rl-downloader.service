@@ -1,0 +1,24 @@
+[Unit]
+Description=RL Analytics: replays downloaden (alle ranks 500, Champion 5000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=rlanalytics
+Group=rlanalytics
+WorkingDirectory=/srv/rl-analytics
+Environment=PYTHONIOENCODING=utf-8 HOME=/srv/rl-analytics
+ExecStart=/srv/rl-analytics/.venv/bin/python -u -m kern.downloader
+Restart=always
+RestartSec=60
+Slice=rl-analytics.slice
+Nice=19
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/rl-analytics /var/lib/rl-analytics-inbox
+
+[Install]
+WantedBy=multi-user.target

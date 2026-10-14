@@ -1,0 +1,458 @@
+/* ═══ Tokens ═══
+   Teamkleuren (gevalideerd op donker): blauw #3d8bff, oranje #e06a12.
+   Goed/slecht-kleuren staan los van teamkleuren (Leetify-tiers). */
+:root {
+  --bg: #0a0d13;
+  --bg-verloop: none;
+  --paneel: #11161f;
+  --paneel-2: #171d28;
+  --rand: #222a37;
+  --rand-zacht: #1a212c;
+  --tekst: #e8ecf2;
+  --tekst-2: #919bad;
+  --tekst-3: #5d6779;
+  --accent: #e8ecf2;
+  --blauw: #3d8bff;
+  --oranje: #e06a12;
+  --tier-top: #2fd27a;
+  --tier-goed: #7fdc9f;
+  --tier-gem: #e8ecf2;
+  --tier-onder: #f5a35b;
+  --tier-slecht: #f0655b;
+  --radius: 14px;
+  --radius-k: 8px;
+  --schaduw: 0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px -18px rgba(0,0,0,.6);
+  --kaart-bg: var(--paneel);
+  --kaart-rand: var(--rand);
+  --blur: none;
+  --font: 'Inter Variable', system-ui, sans-serif;
+  --display: 'Inter Variable', system-ui, sans-serif;
+  --display-gewicht: 700;
+  --display-spatie: -0.02em;
+  --num: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --kop-transform: none;
+  --kop-spatie: 0;
+  --kop-maat: 14px;
+}
+
+/* Arena: esports-premium, matglas en gloed */
+:root[data-thema="arena"] {
+  --bg: #06070c;
+  --bg-verloop: radial-gradient(1200px 600px at 8% -10%, rgba(61,139,255,.16), transparent 60%), radial-gradient(1000px 600px at 105% 110%, rgba(224,106,18,.13), transparent 60%);
+  --paneel: rgba(20,24,36,.62);
+  --paneel-2: rgba(255,255,255,.045);
+  --rand: rgba(255,255,255,.08);
+  --rand-zacht: rgba(255,255,255,.05);
+  --kaart-bg: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+  --kaart-rand: rgba(255,255,255,.08);
+  --blur: blur(18px) saturate(140%);
+  --accent: #8fb8ff;
+  --radius: 18px;
+  --display: 'Space Grotesk Variable', sans-serif;
+  --display-gewicht: 700;
+  --display-spatie: -0.01em;
+  --kop-transform: uppercase;
+  --kop-spatie: .12em;
+  --kop-maat: 12px;
+  --schaduw: 0 1px 0 rgba(255,255,255,.06) inset, 0 20px 50px -25px rgba(0,0,0,.8);
+}
+
+/* Editorial: The Analyst / The Athletic, warm en rustig, serif-koppen, haarlijnen */
+:root[data-thema="editorial"] {
+  --bg: #12110f;
+  --paneel: #181614;
+  --paneel-2: #201e1b;
+  --rand: #2d2a26;
+  --rand-zacht: #24211e;
+  --tekst: #efe9df;
+  --tekst-2: #a9a094;
+  --tekst-3: #6f675d;
+  --accent: #d4b06a;
+  --kaart-bg: transparent;
+  --kaart-rand: transparent;
+  --radius: 4px;
+  --radius-k: 4px;
+  --schaduw: none;
+  --display: 'Instrument Serif', Georgia, serif;
+  --display-gewicht: 400;
+  --display-spatie: 0;
+  --kop-maat: 22px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--tekst); }
+body { font: 14px/1.5 var(--font); font-feature-settings: 'tnum', 'cv11'; -webkit-font-smoothing: antialiased; background-image: var(--bg-verloop); background-attachment: fixed; }
+button { font: inherit; color: inherit; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: var(--display-gewicht); letter-spacing: var(--display-spatie); }
+h3 { font-size: var(--kop-maat); text-transform: var(--kop-transform); letter-spacing: var(--kop-spatie); }
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+.dim { color: var(--tekst-3); }
+svg { overflow: visible; }
+
+.app { display: grid; grid-template-columns: 240px 1fr; height: 100vh; }
+
+/* ═══ Zijbalk ═══ */
+.zijbalk { display: flex; flex-direction: column; background: var(--paneel); backdrop-filter: var(--blur); border-right: 1px solid var(--rand); padding: 20px 14px; overflow-y: auto; }
+.merk { display: flex; align-items: center; gap: 10px; font: var(--display-gewicht) 17px var(--display); margin: 0 8px 26px; }
+.merk-stip { width: 16px; height: 16px; border-radius: 50%; background: conic-gradient(var(--blauw) 0 50%, var(--oranje) 50% 100%); box-shadow: 0 0 16px rgba(61,139,255,.4); }
+.nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: 26px; }
+.nav-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: var(--radius-k); color: var(--tekst-2); cursor: pointer; transition: background .15s, color .15s; }
+.nav-item svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.nav-item:hover { background: var(--paneel-2); color: var(--tekst); }
+.nav-item.actief { background: var(--paneel-2); color: var(--tekst); box-shadow: inset 2px 0 0 var(--accent); }
+.nav-item.uit { opacity: .45; cursor: default; }
+.zijbalk-kop { font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: var(--tekst-3); margin: 0 10px 8px; }
+.replaylijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.replay { padding: 9px 10px; border-radius: var(--radius-k); cursor: pointer; border: 1px solid transparent; transition: background .15s; }
+.replay:hover { background: var(--paneel-2); }
+.replay.actief { background: var(--paneel-2); border-color: var(--rand); }
+.replay-score { display: flex; gap: 6px; align-items: baseline; font: 700 14px var(--num); }
+.replay-score .b { color: var(--blauw); } .replay-score .o { color: var(--oranje); }
+.replay-pl { margin-left: auto; font: 400 11.5px var(--font); color: var(--tekst-3); }
+.replay-sub { font-size: 12px; color: var(--tekst-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zijbalk-voet { margin-top: auto; padding-top: 20px; }
+.themas { display: flex; flex-direction: column; gap: 3px; }
+.themas button { display: flex; align-items: center; gap: 10px; background: none; border: 1px solid transparent; border-radius: var(--radius-k); padding: 7px 10px; cursor: pointer; color: var(--tekst-2); text-align: left; }
+.themas button:hover { background: var(--paneel-2); }
+.themas button.actief { border-color: var(--rand); color: var(--tekst); background: var(--paneel-2); }
+.themas i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); }
+.themas [data-thema="carbon"] i { background: #11161f; }
+.themas [data-thema="arena"] i { background: linear-gradient(135deg, #3d8bff55, #06070c 50%, #e06a1255); }
+.themas [data-thema="editorial"] i { background: #181614; border-color: #d4b06a; }
+
+/* ═══ Hoofdvlak ═══ */
+.hoofd { overflow-y: auto; padding: 0 28px 40px; }
+.topbalk { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 16px; padding: 16px 0 14px; background: linear-gradient(var(--bg) 70%, transparent); }
+.kruimel { font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.zoek { margin-left: auto; display: flex; align-items: center; gap: 8px; width: 300px; padding: 7px 12px; border-radius: var(--radius-k); background: var(--paneel-2); border: 1px solid var(--rand); color: var(--tekst-3); font-size: 13px; }
+.zoek svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+.zoek kbd { margin-left: auto; font: 11px var(--num); border: 1px solid var(--rand); border-radius: 4px; padding: 0 5px; }
+.knop-primair { border: 0; border-radius: var(--radius-k); padding: 8px 14px; background: var(--tekst); color: var(--bg); font-weight: 600; cursor: pointer; }
+
+.kaart { background: var(--kaart-bg); backdrop-filter: var(--blur); border: 1px solid var(--kaart-rand); border-radius: var(--radius); padding: 16px; min-width: 0; box-shadow: var(--schaduw); }
+.kaart-kop { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.kaart-kop .sub { color: var(--tekst-3); font-size: 12px; text-align: right; }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--paneel-2); border: 1px solid var(--rand); font-size: 11px; color: var(--tekst-2); white-space: nowrap; }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1fr auto 1fr; gap: 32px; align-items: center; padding: 26px 30px; margin-bottom: 14px; border-radius: var(--radius); border: 1px solid var(--kaart-rand); box-shadow: var(--schaduw); backdrop-filter: var(--blur);
+  background: linear-gradient(100deg, rgba(61,139,255,.13), transparent 32%, transparent 68%, rgba(224,106,18,.13)), var(--paneel); position: relative; overflow: hidden; }
+.hero::after { content: ''; position: absolute; inset: 0; background: radial-gradient(600px 160px at 50% -40px, rgba(255,255,255,.06), transparent); pointer-events: none; }
+.hero-team { display: flex; flex-direction: column; gap: 6px; }
+.hero-team.rechts { align-items: flex-end; }
+.hero-team.rechts .hero-speler { flex-direction: row-reverse; }
+.hero-teamnaam { display: flex; align-items: center; gap: 8px; font: var(--display-gewicht) 20px var(--display); margin-bottom: 4px; }
+.hero-teamnaam i { width: 10px; height: 10px; border-radius: 3px; }
+.winst { font: 600 10px var(--font); text-transform: uppercase; letter-spacing: .1em; color: var(--tier-top); border: 1px solid rgba(47,210,122,.35); padding: 1px 7px; border-radius: 999px; }
+.hero-speler { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.avatar-s { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 9.5px; font-weight: 700; background: var(--paneel-2); box-shadow: 0 0 0 1.5px var(--kl); }
+.hero-speler-naam { display: flex; align-items: center; gap: 6px; }
+.mvp { font: 700 9px var(--font); letter-spacing: .08em; color: #1a1406; background: #f5cf4f; padding: 1px 5px; border-radius: 4px; }
+.hero-midden { text-align: center; }
+.hero-meta { font-size: 12px; color: var(--tekst-2); letter-spacing: .02em; }
+.hero-score { font: 700 64px/1.05 var(--num); letter-spacing: -.02em; margin: 6px 0; display: flex; justify-content: center; gap: 18px; }
+:root[data-thema="editorial"] .hero-score { font: 400 84px/1 var(--display); }
+:root[data-thema="arena"] .hero-score { font: 700 68px/1 var(--display); }
+.hero-score .s0 { color: var(--blauw); } .hero-score .s1 { color: var(--oranje); }
+.livestand { font: 700 15px var(--num); padding: 3px 10px; border-radius: var(--radius-k); background: var(--paneel-2); border: 1px solid var(--rand); }
+.livestand .b { color: var(--blauw); } .livestand .o { color: var(--oranje); }
+.hero-streep { color: var(--tekst-3); font-weight: 300; }
+.hero-sub { font-size: 12px; color: var(--tekst-3); }
+
+/* Kernstrip */
+.kernstrip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.kernstrip .vgl { background: var(--kaart-bg); backdrop-filter: var(--blur); border: 1px solid var(--kaart-rand); border-radius: var(--radius); padding: 12px 14px 14px; box-shadow: var(--schaduw); }
+:root[data-thema="editorial"] .kernstrip .vgl { border-top: 1px solid var(--rand); border-radius: 0; padding-left: 0; padding-right: 0; }
+
+/* Vergelijkingsbalk */
+.vgl { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 4px 10px; }
+.vgl-label { text-align: center; color: var(--tekst-2); font-size: 12px; }
+.vgl-a, .vgl-b { font-size: 15px; color: var(--tekst-2); }
+.vgl-a.wint, .vgl-b.wint { color: var(--tekst); font-weight: 700; }
+.vgl-balk { grid-column: 1 / -1; display: flex; gap: 3px; height: 6px; }
+.vgl-balk i { border-radius: 3px; min-width: 3px; }
+.vgl-balk .a { background: var(--blauw); } .vgl-balk .b { background: var(--oranje); }
+.vgl.klein { padding: 7px 0; border-bottom: 1px solid var(--rand-zacht); }
+.vgl.klein:last-of-type { border-bottom: 0; }
+.vgl.klein .vgl-a, .vgl.klein .vgl-b { font-size: 13px; }
+.vgl.klein .vgl-balk { height: 4px; }
+
+/* Tabs */
+.tabs { position: relative; display: flex; gap: 4px; border-bottom: 1px solid var(--rand); margin-bottom: 18px; }
+.tabs button { background: none; border: 0; padding: 10px 14px; cursor: pointer; color: var(--tekst-2); font-weight: 500; }
+.tabs button:hover { color: var(--tekst); }
+.tabs button.actief { color: var(--tekst); }
+:root[data-thema="editorial"] .tabs button { font: 400 19px var(--display); }
+.tabs-streep { position: absolute; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; transition: left .25s cubic-bezier(.3,.7,.2,1), width .25s cubic-bezier(.3,.7,.2,1); }
+
+/* ═══ Overzicht ═══ */
+.overzicht { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "drie spelers" "drie schoten" "xg schoten" "goals goals" "events events"; gap: 16px; }
+.kaart-xg { grid-area: xg; }
+.kaart-3d { grid-area: drie; } .kaart-spelers { grid-area: spelers; } .kaart-schoten { grid-area: schoten; } .kaart-goals { grid-area: goals; } .kaart-events { grid-area: events; }
+.knoppen, .snelheden { display: flex; gap: 3px; background: var(--paneel-2); padding: 3px; border-radius: var(--radius-k); }
+.knoppen button, .snelheden button { background: none; border: 0; padding: 4px 10px; border-radius: 6px; cursor: pointer; color: var(--tekst-2); font-size: 12px; }
+.knoppen button.actief, .snelheden button.actief { background: var(--rand); color: var(--tekst); }
+.viewer { position: relative; height: 480px; border-radius: calc(var(--radius) - 4px); overflow: hidden; background: radial-gradient(ellipse at 50% 35%, #142033, #070a0f 78%); }
+:root[data-thema="editorial"] .viewer { background: radial-gradient(ellipse at 50% 35%, #201c17, #0c0b0a 78%); }
+.label3d { font: 600 11px var(--font); padding: 2px 7px; border-radius: 6px; background: rgba(10,13,19,.8); border: 1px solid; white-space: nowrap; margin-bottom: 10px; color: #e8ecf2; }
+.label3d .boost { display: block; height: 3px; margin-top: 3px; border-radius: 2px; background: #2a3342; overflow: hidden; }
+.label3d .boost i { display: block; height: 100%; background: #f5cf4f; }
+.speelbalk { display: flex; align-items: center; gap: 14px; margin: 14px 0 8px; }
+.speel { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--tekst); color: var(--bg); cursor: pointer; font-size: 13px; }
+.tijd { font-size: 16px; min-width: 52px; }
+.balsnelheid { font-size: 12px; color: var(--tekst-3); }
+.snelheden { margin-left: auto; }
+.tijdlijn { position: relative; height: 92px; cursor: pointer; }
+.tijdlijn canvas { width: 100%; height: 100%; display: block; }
+.tijdlijn-kop { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--tekst); pointer-events: none; box-shadow: 0 0 8px rgba(255,255,255,.4); }
+.voetnoot { margin-top: 6px; font-size: 11px; color: var(--tekst-3); }
+
+.team-groep + .team-groep { border-top: 1px solid var(--rand-zacht); margin-top: 6px; padding-top: 6px; }
+.speler { display: grid; grid-template-columns: 3px 1fr auto auto; gap: 10px; align-items: center; padding: 7px 4px; border-radius: var(--radius-k); }
+.speler-streep { align-self: stretch; border-radius: 2px; }
+.speler-naam { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.speler-boost { height: 3px; background: var(--paneel-2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.speler-boost i { display: block; height: 100%; background: #f5cf4f; }
+.speler-stats { display: grid; grid-template-columns: repeat(4, 22px); gap: 2px; text-align: center; font-size: 12.5px; }
+.speler-stats b { display: block; font-size: 8.5px; color: var(--tekst-3); font-weight: 500; letter-spacing: .05em; }
+.speler-score { font-size: 13px; color: var(--tekst-2); min-width: 32px; text-align: right; }
+
+#schotkaart { width: 100%; height: 400px; display: block; }
+.legenda { display: flex; gap: 14px; font-size: 11px; color: var(--tekst-2); margin-top: 8px; align-items: center; flex-wrap: wrap; }
+.stip { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--tekst-2); margin-right: 5px; vertical-align: -1px; }
+.stip.vol { background: var(--tekst-2); }
+
+.goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.goal { text-align: left; display: grid; gap: 2px; padding: 12px 14px; border-radius: var(--radius-k); border: 1px solid var(--rand); background: var(--paneel-2); cursor: pointer; position: relative; overflow: hidden; transition: transform .15s, border-color .15s; }
+.goal::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kl); }
+.goal:hover { transform: translateY(-1px); border-color: var(--tekst-3); }
+.goal-tijd { font-size: 11px; color: var(--tekst-3); }
+.goal-naam { font-weight: 700; }
+.goal-sub { font-size: 12px; color: var(--tekst-2); margin-bottom: 6px; }
+.goal-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.eventlijst { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; columns: 3; column-gap: 18px; }
+.event { display: grid; grid-template-columns: 40px 18px 1fr; gap: 6px; align-items: center; padding: 5px 6px; border-radius: 6px; cursor: pointer; break-inside: avoid; font-size: 13px; }
+.event:hover { background: var(--paneel-2); }
+.event .num { color: var(--tekst-3); font-size: 12px; }
+.event-icoon { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #0a0d13; }
+
+/* ═══ Teamstats ═══ */
+.teamstats { columns: 3 320px; column-gap: 16px; }
+.stats-groep { break-inside: avoid; margin-bottom: 16px; display: block; }
+.later { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--rand); }
+.later .chip { color: var(--tekst-3); }
+
+/* ═══ Spelertabel ═══ */
+.groepkeuze { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.groepkeuze button { border: 1px solid var(--rand); background: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; color: var(--tekst-2); font-size: 13px; transition: all .15s; }
+.groepkeuze button:hover { color: var(--tekst); border-color: var(--tekst-3); }
+.groepkeuze button.actief { background: var(--tekst); color: var(--bg); border-color: var(--tekst); font-weight: 600; }
+.tabel-wrap { overflow-x: auto; }
+.tabel { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabel th { font-weight: 500; color: var(--tekst-3); font-size: 11.5px; text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--rand); cursor: pointer; white-space: nowrap; user-select: none; }
+.tabel th:hover, .tabel th.gesorteerd { color: var(--tekst); }
+.tabel td { text-align: right; padding: 10px 12px; border-bottom: 1px solid var(--rand-zacht); white-space: nowrap; }
+.tabel .links { text-align: left; }
+.tabel tr:hover td { background: var(--paneel-2); }
+.tabel-speler { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.tabel-speler i { width: 8px; height: 8px; border-radius: 2px; }
+.tint-top { color: var(--tier-top); background: rgba(47,210,122,.12); font-weight: 700; }
+.tint-goed { color: var(--tier-goed); background: rgba(127,220,159,.06); }
+.tint-onder { color: var(--tier-onder); background: rgba(245,163,91,.07); }
+.tint-slecht { color: var(--tier-slecht); background: rgba(240,101,91,.12); font-weight: 700; }
+.tierlegenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--tekst-2); margin-top: 14px; }
+.tierlegenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--paneel-2); border: 1px solid var(--rand); }
+
+/* ═══ Positie & boost ═══ */
+.hm-raster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.hm-mini { width: 100%; display: block; }
+.hm-as { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--tekst-3); margin-top: 6px; }
+.twee { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.boost-boven { grid-template-columns: 1.3fr 1fr; }
+.stapel-rij { display: grid; grid-template-columns: 150px 1fr 96px; gap: 12px; align-items: center; padding: 7px 0; font-size: 13px; }
+.stapel-rij .num { text-align: right; font-size: 11.5px; }
+.stapel { display: flex; gap: 2px; height: 12px; }
+.stapel i { border-radius: 3px; }
+.stapel-legenda { display: flex; gap: 14px; font-size: 11px; color: var(--tekst-2); margin-top: 10px; }
+.stapel-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.padkaart { width: 100%; display: block; }
+
+/* ═══ Catalogus ═══ */
+.catalogus-kop { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 8px 0 22px; }
+.catalogus-kop h1 { font-size: 34px; }
+:root[data-thema="editorial"] .catalogus-kop h1 { font-size: 46px; }
+.catalogus-kop p { margin: 6px 0 0; max-width: 560px; }
+.catalogus-tellers { display: flex; gap: 26px; }
+.catalogus-tellers div { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; }
+.catalogus-tellers .num { font-size: 30px; font-weight: 700; color: var(--tekst); }
+.catalogus { columns: 3 340px; column-gap: 16px; }
+.cat-groep { break-inside: avoid; margin-bottom: 16px; display: block; }
+.cat-rij { display: grid; grid-template-columns: 22px 1fr auto; gap: 2px 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--rand-zacht); font-size: 13px; }
+.cat-rij:last-child { border-bottom: 0; }
+.cat-status { font-weight: 700; text-align: center; }
+.cat-uitleg { grid-column: 2 / -1; font-size: 11.5px; color: var(--tekst-3); }
+.st-ok { color: var(--tier-top); } .st-af { color: #f5cf4f; } .st-model { color: #9aa6ff; }
+
+/* Editorial: kaarten worden haarlijn-secties */
+:root[data-thema="editorial"] .kaart { border-top: 1px solid var(--rand); padding: 18px 0 8px; }
+:root[data-thema="editorial"] .hero { background: linear-gradient(100deg, rgba(61,139,255,.07), transparent 35%, transparent 65%, rgba(224,106,18,.07)); border: 0; border-top: 1px solid var(--rand); border-bottom: 1px solid var(--rand); border-radius: 0; }
+:root[data-thema="editorial"] .hero-teamnaam { font-size: 26px; }
+
+/* ═══ Spelerprofiel ═══ */
+.banner { font-size: 12px; color: var(--tekst-2); background: var(--paneel-2); border: 1px dashed var(--rand); border-radius: var(--radius-k); padding: 8px 12px; margin-bottom: 14px; }
+.profielkop { display: grid; grid-template-columns: auto 1fr minmax(320px, 420px); gap: 20px; align-items: center; margin-bottom: 16px; padding: 20px 24px; }
+.avatar { width: 58px; height: 58px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; font-size: 18px; background: linear-gradient(135deg, #263247, #161c27); border: 1px solid var(--rand); }
+.profiel-naam { font: var(--display-gewicht) 26px var(--display); margin-bottom: 6px; }
+.profiel-id .chip { margin: 0 4px 0 0; }
+.profiel-rating-kop { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.profiel-rating-rij { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.rating-groot { font-size: 28px; font-weight: 700; padding: 6px 12px; border-radius: 10px; }
+.ratingbalk { position: relative; height: 14px; }
+.ratingbalk-spoor { position: absolute; inset: 5px 0; background: var(--paneel-2); border-radius: 3px; }
+.ratingbalk-band { position: absolute; top: 3px; bottom: 3px; background: rgba(127,220,159,.28); border-radius: 4px; }
+.ratingbalk-gem { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--tekst-3); }
+.ratingbalk-punt { position: absolute; top: 1px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--tier-goed); border: 2px solid var(--bg); }
+.ratingbalk-as { display: flex; justify-content: space-between; font-size: 10px; color: var(--tekst-3); margin-top: 3px; }
+.tegels { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tegel { padding: 12px 14px; }
+.tegel-kop { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12px; color: var(--tekst-2); min-height: 22px; }
+.tegel-waarde { font-size: 26px; font-weight: 700; margin: 4px 0 2px; }
+.spark { width: 100%; height: 32px; display: block; }
+.tegel-voet { font-size: 11px; margin-top: 4px; min-height: 15px; }
+.onzeker { color: var(--tier-onder); }
+.pchip { font: 700 11px var(--num); padding: 2px 6px; border-radius: 5px; white-space: nowrap; }
+.profielraster { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
+.kaart-breed { grid-column: 1 / -1; }
+.pgroepen { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; }
+.pgroep-kop { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--tekst-3); margin-bottom: 6px; }
+.prij { display: grid; grid-template-columns: 1fr auto 90px 26px; gap: 10px; align-items: center; padding: 5px 0; font-size: 13px; }
+.prij-label { color: var(--tekst-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prij-waarde { font-size: 12px; }
+.prij-spoor { position: relative; height: 8px; background: var(--paneel-2); border-radius: 4px; }
+.prij-vul { height: 100%; border-radius: 4px; }
+.prij-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--bg); }
+.prij-p { text-align: right; font-size: 12px; font-weight: 700; }
+.pizza { width: 100%; max-height: 360px; display: block; }
+.pizza-label { font-size: 12px; fill: var(--tekst-2); }
+.pizza-p { font: 700 12px var(--num); fill: var(--tekst); }
+.heatmap { width: 100%; display: block; }
+.hm-tekst { font: 600 13px var(--num); }
+.hm-as .schaal { display: flex; align-items: center; gap: 2px; }
+.hm-as .schaal i { display: inline-block; width: 14px; height: 8px; background: #2ec4c4; border-radius: 2px; }
+.lijngrafiek { width: 100%; display: block; }
+.as-tekst { font: 11px var(--num); fill: var(--tekst-3); }
+.stabiel { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 8px 28px; }
+.stabiel-rij { display: grid; grid-template-columns: 170px 1fr 120px; gap: 12px; align-items: center; font-size: 13px; }
+.stabiel-spoor { height: 6px; background: var(--paneel-2); border-radius: 3px; overflow: hidden; }
+.stabiel-spoor i { display: block; height: 100%; border-radius: 3px; }
+
+/* ═══ Arena: extra karakter (ingetogen) ═══ */
+:root[data-thema="arena"] {
+  --bg-verloop:
+    radial-gradient(900px 520px at 12% -8%, rgba(61,139,255,.12), transparent 62%),
+    radial-gradient(900px 560px at 100% 105%, rgba(224,106,18,.09), transparent 62%);
+}
+:root[data-thema="arena"] body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .35;
+  background-image: linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 48px 48px; mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+}
+:root[data-thema="arena"] .app { position: relative; z-index: 1; }
+:root[data-thema="arena"] .zijbalk { background: rgba(10,12,20,.55); }
+:root[data-thema="arena"] .kaart,
+:root[data-thema="arena"] .kernstrip .vgl,
+:root[data-thema="arena"] .hero { position: relative; }
+:root[data-thema="arena"] .kaart::before,
+:root[data-thema="arena"] .kernstrip .vgl::before,
+:root[data-thema="arena"] .hero::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 35%, rgba(255,255,255,.02) 65%, rgba(255,255,255,.08));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+:root[data-thema="arena"] .hero {
+  background: radial-gradient(500px 220px at 0% 50%, rgba(61,139,255,.13), transparent 70%), radial-gradient(500px 220px at 100% 50%, rgba(224,106,18,.11), transparent 70%), rgba(14,17,28,.55);
+}
+:root[data-thema="arena"] .tabs-streep { height: 2px; background: var(--accent); }
+:root[data-thema="arena"] .nav-item.actief { background: var(--paneel-2); box-shadow: inset 2px 0 0 var(--accent); }
+:root[data-thema="arena"] .knop-primair { background: #e8ecf2; color: #06070c; }
+:root[data-thema="arena"] .goal { background: rgba(255,255,255,.035); }
+
+/* ═══ Modellen ═══ */
+.modelraster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.modelraster .kaart-breed { grid-column: 1 / -1; }
+.mbalk { display: grid; grid-template-columns: 190px 1fr 64px; gap: 12px; align-items: center; padding: 6px 0; font-size: 13px; }
+.mbalk-label { color: var(--tekst-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mbalk-spoor { height: 10px; background: var(--paneel-2); border-radius: 4px; overflow: hidden; }
+.mbalk-spoor i { display: block; height: 100%; border-radius: 4px; }
+.mbalk-waarde { text-align: right; font-size: 12.5px; }
+.mnoot { margin-top: 10px; font-size: 11.5px; color: var(--tekst-3); }
+.mstatus { display: grid; gap: 10px; font-size: 13px; }
+.mstatus div { display: flex; justify-content: space-between; gap: 12px; }
+.mstatus code { font: 12px var(--num); background: var(--paneel-2); padding: 1px 5px; border-radius: 4px; }
+
+/* Prestatie: geen matglas-blur achter de 3D-kaart (moet anders elk frame opnieuw worden berekend) */
+.kaart-3d { backdrop-filter: none; }
+:root[data-thema="arena"] .kaart-3d { background: linear-gradient(180deg, rgba(24,28,40,.96), rgba(16,19,30,.96)); }
+.viewer { contain: strict; }
+
+.replay-mijn { font: 700 9.5px var(--font); padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.replay-mijn.w { color: var(--tier-top); background: rgba(47,210,122,.14); }
+.replay-mijn.v { color: var(--tier-slecht); background: rgba(240,101,91,.12); }
+
+/* ═══ Telefoon (≤ 900 px): navigatie bovenaan, alles in één kolom ═══ */
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .app { display: block; height: auto; }
+  .hoofd { overflow: visible; padding: 0 12px 40px; }
+  .zijbalk { border-right: 0; border-bottom: 1px solid var(--rand); padding: 12px; overflow: visible; }
+  .merk { margin: 0 4px 10px; }
+  .nav { flex-direction: row; overflow-x: auto; margin-bottom: 10px; gap: 4px; scrollbar-width: none; }
+  .nav-item { white-space: nowrap; padding: 7px 10px; }
+  .nav-item.uit, .zijbalk-kop, .zijbalk-voet { display: none; }
+  .replaylijst { flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; scrollbar-width: none; }
+  .replay { min-width: 210px; border-color: var(--rand); }
+  .topbalk { position: static; padding: 12px 0 10px; background: none; }
+  .zoek, .knop-primair { display: none; }
+  .hero { grid-template-columns: 1fr; gap: 14px; padding: 18px; }
+  .hero-midden { order: -1; }
+  .hero-team, .hero-team.rechts { align-items: flex-start; }
+  .hero-team.rechts .hero-speler { flex-direction: row; }
+  .hero-team.rechts .hero-teamnaam { flex-direction: row-reverse; }
+  .hero-score { font-size: 48px; }
+  :root[data-thema="arena"] .hero-score { font-size: 52px; }
+  .kernstrip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs button { white-space: nowrap; }
+  .overzicht { grid-template-columns: 1fr; grid-template-areas: "drie" "spelers" "schoten" "xg" "goals" "events"; }
+  .viewer { height: 300px; }
+  .speelbalk { flex-wrap: wrap; gap: 10px; }
+  .eventlijst { columns: 1; }
+  .teamstats, .catalogus { columns: 1; }
+  .hm-raster { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .twee, .boost-boven { grid-template-columns: 1fr; }
+  .stapel-rij { grid-template-columns: 96px 1fr 64px; gap: 8px; }
+  .tegels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tegel-waarde { font-size: 22px; }
+  .profielkop { grid-template-columns: auto 1fr; padding: 16px; }
+  .profielkop .profiel-rating { grid-column: 1 / -1; }
+  .profielraster, .pgroepen, .modelraster { grid-template-columns: 1fr; }
+  .prij { grid-template-columns: 1fr auto 70px 24px; gap: 8px; }
+  .catalogus-kop { flex-direction: column; align-items: flex-start; }
+  .catalogus-tellers { gap: 18px; }
+  .mbalk { grid-template-columns: 120px 1fr 56px; gap: 8px; }
+  .stabiel { grid-template-columns: 1fr; }
+  .stabiel-rij { grid-template-columns: 1fr 1fr 96px; }
+  .kaart { padding: 14px; }
+}
+
+/* Merk: woordmerk-logo */
+.merk-logo { height: 38px; width: auto; display: block; }
+@media (max-width: 900px) { .merk-logo { height: 26px; } }
+
+/* Smalle, donkere schuifbalken (ook in de desktop-app) */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.14) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }

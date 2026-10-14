@@ -1,0 +1,17 @@
+[project]
+name = "rl-analytics"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "scikit-learn>=1.9.1",
+    "subtr-actor-py>=1.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pillow>=12.3.0",
+]

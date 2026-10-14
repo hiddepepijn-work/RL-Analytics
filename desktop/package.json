@@ -1,0 +1,42 @@
+{
+  "name": "rl-analytics",
+  "productName": "RL Analytics",
+  "version": "1.0.1",
+  "description": "RL Analytics: je Rocket League-stats, xG en profiel. Stuurt nieuwe replays automatisch door.",
+  "author": "Hidde",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "bouw": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "nl.rlanalytics.desktop",
+    "productName": "RL Analytics",
+    "directories": {
+      "buildResources": "bouw",
+      "output": "uitvoer"
+    },
+    "files": [
+      "main.js",
+      "inloggen.html",
+      "bouw/tray.png",
+      "bouw/icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "bouw/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "RL Analytics",
+      "runAfterFinish": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

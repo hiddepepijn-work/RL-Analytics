@@ -1,0 +1,29 @@
+# RL Analytics. Zelfde VPS als Reisbouwer (8787), Uurwerk (8790) en Pixel Quest, maar eigen hostnaam,
+# eigen certificaat en geen eigen webproces: Caddy serveert de statische app + data-JSON uit /srv/rl-analytics.
+# Ingehaakt in /etc/caddy/Caddyfile met één regel:  import /etc/caddy/rl-analytics.caddy
+# sslip.io wijst elke naam met het IP erin naar dat IP, dus er is geen DNS-record nodig.
+rl.51-75-74-94.sslip.io {
+	encode zstd gzip
+	basic_auth {
+		sand <bcrypt-hash: caddy hash-password>
+	}
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		Referrer-Policy no-referrer
+		X-Content-Type-Options nosniff
+	}
+	@data path /verwerkt/* /modellen/*.json /modellen/*.jsonl
+	handle @data {
+		root * /srv/rl-analytics/data
+		header Cache-Control "no-store"
+		file_server
+	}
+	handle /modellen/* {
+		respond 404
+	}
+	handle {
+		root * /srv/rl-analytics/app/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

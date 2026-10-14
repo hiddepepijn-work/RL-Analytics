@@ -1,0 +1,142 @@
+/* ═══════════════ Premium-laag: uitleg, ratings, laden, opkomst, hover (ingetogen, geen gloed) ═══════════════ */
+:root { --ease: cubic-bezier(.22,.8,.24,1); --r-top: #2fd27a; --r-goed: #7fdc9f; --r-gem: #e8ecf2; --r-onder: #f5a35b; --r-slecht: #f0655b; }
+
+/* Uitleg op hover: stippellijn + help-cursor; popover */
+.info { cursor: help; text-decoration: underline dotted transparent; text-underline-offset: 3px; transition: text-decoration-color .2s; }
+.info:hover { text-decoration-color: var(--tekst-3); }
+.kaart-kop .sub.info::before { content: 'ⓘ '; }
+.uitleg-pop { position: fixed; z-index: 100; max-width: 320px; padding: 12px 14px; border-radius: 12px; pointer-events: none;
+  background: rgba(16,19,30,.97); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 18px 40px -16px rgba(0,0,0,.8);
+  opacity: 0; transform: translateY(4px) scale(.98); transition: opacity .16s var(--ease), transform .16s var(--ease); }
+.uitleg-pop[data-onder="true"] { transform: translateY(-4px) scale(.98); }
+.uitleg-pop.zichtbaar { opacity: 1; transform: none; }
+.pop-titel { font-weight: 700; margin-bottom: 4px; font-family: var(--display); letter-spacing: var(--display-spatie); }
+.pop-tekst { font-size: 12.5px; color: var(--tekst-2); line-height: 1.55; }
+.pop-voet { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 11px; align-items: center; }
+.pop-goed { color: var(--r-top); }
+.pop-laag { color: var(--r-onder); font-size: 12px; }
+.pop-neutraal { color: var(--tekst-3); }
+.pop-chip { padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--tekst-2); }
+
+/* Rating-kleuren (SofaScore-achtige banden; los van teamkleuren) */
+.r-top { color: #06140c; background: var(--r-top); }
+.r-goed { color: #0a1a10; background: var(--r-goed); }
+.r-gem { color: var(--tekst); background: rgba(255,255,255,.1); }
+.r-onder { color: #1e1206; background: var(--r-onder); }
+.r-slecht { color: #200807; background: var(--r-slecht); }
+.r-geen { color: var(--tekst-3); background: rgba(255,255,255,.05); }
+.r-top-tekst { color: var(--r-top); }
+.r-goed-tekst { color: var(--r-goed); }
+.r-gem-tekst { color: var(--tekst); }
+.r-onder-tekst { color: var(--r-onder); }
+.r-slecht-tekst { color: var(--r-slecht); }
+.r-geen-tekst { color: var(--tekst-3); }
+.rating-chip { font: 700 11.5px var(--num); padding: 2px 7px; border-radius: 6px; min-width: 34px; text-align: center; }
+.rating-live { position: relative; font: 700 13px var(--num); padding: 3px 0; border-radius: 7px; width: 44px; text-align: center;
+  transition: background-color .35s var(--ease), color .35s var(--ease); }
+.rating-live.flits::after { position: absolute; right: -12px; top: 50%; font-size: 10px; transform: translateY(-50%); animation: flits .9s var(--ease) forwards; }
+.rating-live.flits[data-richting="op"]::after { content: '▲'; color: var(--r-top); }
+.rating-live.flits[data-richting="neer"]::after { content: '▼'; color: var(--r-slecht); }
+@keyframes flits { 0% { opacity: 0; transform: translateY(-20%) } 20% { opacity: 1 } 100% { opacity: 0; transform: translateY(-80%) } }
+.speler { grid-template-columns: 3px 1fr auto 44px; }
+
+/* Rating-verloop */
+.kaart-rating { grid-area: rating; }
+.rv-houder { position: relative; }
+.rv-label { font: 600 11.5px var(--font); fill: var(--tekst-2); }
+.rv-kop { stroke: var(--tekst); stroke-width: 1.5; opacity: .6; }
+.rv-tip { position: absolute; top: 8px; min-width: 150px; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: none;
+  background: rgba(16,19,30,.96); border: 1px solid rgba(255,255,255,.1); opacity: 0; transition: opacity .12s; }
+.rv-tip.zichtbaar { opacity: 1; }
+.rv-tip div { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.rv-tip i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.rv-tip b { margin-left: auto; }
+.overzicht { grid-template-areas: "drie spelers" "drie schoten" "xg schoten" "rating rating" "goals goals" "events events"; }
+
+/* Ratings-tabblad */
+.rating-uitleg { margin-bottom: 16px; }
+.rating-uitleg p { margin: 0; font-size: 13px; line-height: 1.6; }
+.ratings-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+.rating-kaart { border-top: 3px solid var(--kl) !important; }
+.rk-kop { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.rk-naam { font: var(--display-gewicht) 18px var(--display); }
+.rating-groot-badge { font: 700 26px var(--num); padding: 6px 12px; border-radius: 12px; min-width: 70px; text-align: center; }
+.rk-onderdelen { display: grid; gap: 6px; margin-bottom: 14px; }
+.rk-rij { display: grid; grid-template-columns: 86px 1fr 34px 46px; gap: 10px; align-items: center; font-size: 12.5px; cursor: help; padding: 2px 4px; border-radius: 6px; transition: background .15s; }
+.rk-rij:hover { background: var(--paneel-2); }
+.rk-spoor { position: relative; height: 7px; background: var(--paneel-2); border-radius: 4px; }
+.rk-spoor i { display: block; height: 100%; border-radius: 4px; transform-origin: left; animation: groei .7s var(--ease) both; }
+.rk-spoor b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--tekst-3); }
+.rk-imp { font-size: 11px; text-align: right; }
+@keyframes groei { from { transform: scaleX(0) } }
+.rk-acties-kop { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--tekst-3); margin-bottom: 6px; }
+.rk-acties { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rk-acties li { display: grid; grid-template-columns: 38px 48px 1fr auto; gap: 8px; align-items: center; font-size: 12.5px; padding: 5px 6px; border-radius: 6px; cursor: pointer; transition: background .15s, transform .15s var(--ease); }
+.rk-acties li:hover { background: var(--paneel-2); transform: translateX(2px); }
+.rk-delta { font: 700 11.5px var(--num); padding: 1px 5px; border-radius: 5px; text-align: center; }
+.rk-delta.plus { color: var(--r-top); background: rgba(47,210,122,.1); }
+.rk-delta.min { color: var(--r-slecht); background: rgba(240,101,91,.1); }
+
+/* Laden: skeleton + viewer-overlay */
+.skelet { display: grid; gap: 10px; width: 100%; }
+.skelet-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.skelet-kaart { padding: 14px; border-radius: var(--radius); border: 1px solid var(--rand); display: grid; gap: 10px; }
+.skelet-regel, .skelet-blok { height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.09) 37%, rgba(255,255,255,.04) 63%); background-size: 400% 100%; animation: glans 1.3s ease infinite; }
+.skelet-blok { height: 70px; }
+@keyframes glans { 0% { background-position: 100% 50% } 100% { background-position: 0 50% } }
+.viewer-laden { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--tekst-2); font-size: 13px;
+  background: rgba(7,9,14,.72); opacity: 0; pointer-events: none; transition: opacity .3s var(--ease); }
+.viewer-laden.aan { opacity: 1; pointer-events: auto; }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.12); border-top-color: var(--accent); animation: draai .8s linear infinite; }
+@keyframes draai { to { transform: rotate(360deg) } }
+
+/* Opkomst */
+.opkomst { animation: opkomst .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms); }
+@keyframes opkomst { from { opacity: 0; transform: translateY(8px) } }
+
+/* Hover en interactie (zonder gloed) */
+.kaart { transition: border-color .2s var(--ease), box-shadow .25s var(--ease), transform .25s var(--ease); }
+.kaart:hover { border-color: rgba(255,255,255,.12); }
+.tegel, .kernstrip .vgl, .goal, .hm-kaart { transition: transform .2s var(--ease), border-color .2s var(--ease), box-shadow .25s var(--ease); }
+.tegel:hover, .kernstrip .vgl:hover, .hm-kaart:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(0,0,0,.9); }
+.vgl-balk i, .prij-vul, .mbalk-spoor i, .stapel i { transform-origin: left; animation: groei .8s var(--ease) both; }
+.vgl.klein { transition: background .15s; border-radius: 6px; }
+.vgl.klein:hover { background: var(--paneel-2); }
+.tabel tbody tr { transition: background .15s; }
+.tabel tbody tr:hover td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.nav-item { transition: background .15s, color .15s, padding-left .2s var(--ease); }
+.nav-item:not(.uit):hover { padding-left: 13px; }
+.replay { transition: background .15s, border-color .15s, transform .2s var(--ease); }
+.replay:hover { transform: translateX(2px); }
+button { transition: transform .12s var(--ease), background-color .15s, color .15s; }
+button:active { transform: scale(.97); }
+.tabs button { position: relative; }
+.tabs button:not(.actief):hover::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--rand); }
+.prij { transition: background .15s; border-radius: 6px; }
+.prij:hover { background: var(--paneel-2); }
+.event, .goal { cursor: pointer; }
+.speler { transition: background .15s; }
+.speler:hover { background: var(--paneel-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+@media (max-width: 900px) {
+  .overzicht { grid-template-areas: "drie" "spelers" "rating" "schoten" "xg" "goals" "events"; }
+  .ratings-raster { grid-template-columns: 1fr; }
+}
+
+/* Profiel: ratings */
+.profiel-ratings { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; margin-bottom: 16px; }
+.pr-groot { font: 700 44px var(--num); border-radius: 14px; padding: 10px 0; text-align: center; }
+.vorm { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding-top: 18px; }
+.vorm-balk { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; text-decoration: none; color: inherit; border-radius: 8px; padding: 0 2px; transition: background .15s; }
+.vorm-balk:hover { background: var(--paneel-2); }
+.vorm-balk i { width: 100%; max-width: 30px; border-radius: 6px 6px 3px 3px; transform-origin: bottom; animation: groeiV .7s var(--ease) both; }
+.vorm-cijfer { font-size: 11px; color: var(--tekst-2); }
+.vorm-uitslag { font: 700 10px var(--font); }
+.vorm-uitslag.w { color: var(--r-top); }
+.vorm-uitslag.v { color: var(--r-slecht); }
+@keyframes groeiV { from { transform: scaleY(0) } }
+@media (max-width: 900px) { .profiel-ratings { grid-template-columns: 1fr; } }

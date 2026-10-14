@@ -1,0 +1,18 @@
+# Geheimen en toegang
+.env
+toegang.txt
+deploy/rl-analytics.caddy
+
+# Data (replays, modellen, eigen account-ID's, caches) — staat op de VPS, niet in git
+data/
+screenshots/
+
+# Python
+.venv/
+__pycache__/
+*.py[oc]
+
+# Node / builds
+node_modules/
+app/dist/
+desktop/uitvoer/

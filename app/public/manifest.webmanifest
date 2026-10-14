@@ -1,0 +1,29 @@
+{
+  "name": "RL Analytics",
+  "short_name": "RL Analytics",
+  "description": "Rocket League-analyse: xG, passing en je eigen stats t.o.v. je rank",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06070c",
+  "theme_color": "#06070c",
+  "icons": [
+    {
+      "src": "/icoon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icoon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icoon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

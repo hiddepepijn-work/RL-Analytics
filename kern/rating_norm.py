@@ -43,7 +43,7 @@ def verwerk(args) -> int:
 
 def main() -> None:
     from kern import events as eventcache, kansen
-    from kern.rating import DELEN, ONDERDELEN, acties, sommen
+    from kern.rating import DELEN, ONDERDELEN, acties, sommen, touch_tijden
     from kern.xg_model import rank_nummer
     ap = argparse.ArgumentParser()
     ap.add_argument("--band", default="ranked-doubles_champion-1_champion-3")
@@ -68,9 +68,10 @@ def main() -> None:
         ev = eventcache.lijst(p)
         kansen.herkalibreer(inv, ev)
         lijst = acties(ev, inv["schoten"], inv["passen"], inv["team"], inv.get("kansen"))
+        tt = touch_tijden(ev)
         for sid, tijd in inv["speeltijd"].items():
             som = sommen([x for x in lijst if x[1] == sid])
-            rijen.append({"speeltijd": tijd, "impact": sum(som[o] for o in ONDERDELEN), "som": som})
+            rijen.append({"speeltijd": tijd, "impact": sum(som[o] for o in ONDERDELEN), "som": som, "touches": len(tt.get(sid, []))})
     rijen = [r for r in rijen if r["speeltijd"] >= 240]
     per5 = lambda w, r: w * 300 / r["speeltijd"]
     # Robuust: mediaan als midden (typische speler = 6,5) en kwartielafstand/1,349 als spreiding,
@@ -81,6 +82,7 @@ def main() -> None:
     norm = {"n": len(rijen), "totaal": robuust([per5(r["impact"], r) for r in rijen])}
     for o in [*ONDERDELEN, *DELEN]:
         norm[o] = robuust([per5(r["som"][o], r) for r in rijen])
+    norm["touches"] = robuust([per5(r["touches"], r) for r in rijen])  # balcontacten per 5 min (verwachting per touch)
     alle = json.loads(NORM_PAD.read_text(encoding="utf-8")) if NORM_PAD.exists() else {}
     alle[a.band] = norm
     if "champion" in a.band or "_standaard" not in alle:

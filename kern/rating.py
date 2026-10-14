@@ -180,16 +180,37 @@ def norm(band: str | None) -> dict:
     return STANDAARD_NORM
 
 
-def cijfer(impact: float, speeltijd: float, n: dict) -> float:
-    verwacht = n["gem"] * speeltijd / 300
-    spreiding = max(1e-6, n["sd"] * math.sqrt(max(speeltijd, 30) / 300))
-    return round(min(MAX, max(MIN, BASIS + SCHAAL * (impact - verwacht) / spreiding)), 2)
+# Live verloop (14 okt, feedback gebruiker: "je verliest steeds punten, een 10 haal je alleen als je aan het eind scoort"):
+# - Verwachting loopt vooral op per balcontact (AANDEEL_TIJD per tijd): tussen acties blijft de lijn grotendeels vlak,
+#   je zakt pas als je de bal raakt zonder er iets mee te doen; helemaal niet meedoen kost nog steeds iets.
+# - Spreiding van een hele wedstrijd (minstens 300 s) in plaats van √(gespeelde tijd): een goal in minuut 1 weegt even
+#   zwaar als in minuut 5, dus geen vroege 10 die daarna wegzakt.
+# - Zachte grenzen: boven 9 en onder 4 wordt het steeds moeilijker, maar geen hard plafond.
+AANDEEL_TIJD = 0.25
 
 
-def z_score(impact: float, speeltijd: float, n: dict) -> float:
-    verwacht = n["gem"] * speeltijd / 300
-    spreiding = max(1e-6, n["sd"] * math.sqrt(max(speeltijd, 30) / 300))
-    return (impact - verwacht) / spreiding
+def verwacht(n: dict, speeltijd: float, touches: float | None = None, touch_norm: float | None = None) -> float:
+    tijd = speeltijd / 300
+    if touches is None or not touch_norm:
+        return n["gem"] * tijd
+    return n["gem"] * (AANDEEL_TIJD * tijd + (1 - AANDEEL_TIJD) * touches / touch_norm)
+
+
+def zacht(r: float) -> float:
+    if r > 9:
+        r = 9 + (1 - math.exp(-(r - 9)))
+    elif r < 4:
+        r = 4 - (1 - math.exp(-(4 - r)))
+    return round(min(MAX, max(MIN, r)), 2)
+
+
+def z_score(impact: float, speeltijd: float, n: dict, touches: float | None = None, touch_norm: float | None = None) -> float:
+    spreiding = max(1e-6, n["sd"] * math.sqrt(max(speeltijd, 300) / 300))
+    return (impact - verwacht(n, speeltijd, touches, touch_norm)) / spreiding
+
+
+def cijfer(impact: float, speeltijd: float, n: dict, touches: float | None = None, touch_norm: float | None = None) -> float:
+    return zacht(BASIS + SCHAAL * z_score(impact, speeltijd, n, touches, touch_norm))
 
 
 def deel(actie: tuple) -> str:
@@ -208,11 +229,21 @@ def sommen(acties_speler: list[tuple]) -> dict:
     return uit
 
 
-def totaal_cijfer(cum: dict, speeltijd: float, n: dict) -> float:
-    """cum = impact per deel (DELEN)."""
-    z = sum(w * z_score(cum[d], speeltijd, n.get(d, STANDAARD_NORM[d])) for d, w in DELEN.items())
+def totaal_cijfer(cum: dict, speeltijd: float, n: dict, touches: float | None = None) -> float:
+    """cum = impact per deel (DELEN); touches = balcontacten van de speler tot nu toe."""
+    tn = (n.get("touches") or {}).get("gem")
+    z = sum(w * z_score(cum[d], speeltijd, n.get(d, STANDAARD_NORM[d]), touches, tn) for d, w in DELEN.items())
     z /= math.sqrt(sum(w * w for w in DELEN.values()))  # onafhankelijke delen → spreiding weer ~1
-    return round(min(MAX, max(MIN, BASIS + SCHAAL * z)), 2)
+    return zacht(BASIS + SCHAAL * z)
+
+
+def touch_tijden(events: list[dict]) -> dict[str, list[float]]:
+    uit: dict[str, list[float]] = {}
+    for e in events:
+        if e["meta"]["stream"] == "touch":
+            tm = e["meta"]["timing"]
+            uit.setdefault(sleutel(e["meta"].get("primary_player")), []).append(tm.get("start_time", tm.get("time", 0)))
+    return {k: sorted(v) for k, v in uit.items()}
 
 
 def bereken(data: dict, events: list[dict], band: str | None = None) -> dict:
@@ -222,8 +253,12 @@ def bereken(data: dict, events: list[dict], band: str | None = None) -> dict:
     n = norm(band)
     t_eind = data["t"][-1]
     uit = {"norm_band": band if NORM_PAD.exists() else None, "start_na": START_NA, "spelers": {}}
+    tt = touch_tijden(events)
+    tn = (n.get("touches") or {}).get("gem")
+    import bisect
     for sid in team:
         mijn = [a for a in lijst if a[1] == sid]
+        mijn_t = tt.get(sid, [])
         tijdlijn, cum, j = [], {d: 0.0 for d in DELEN}, 0
         stappen = [t for t in data["t"][:: max(1, int(data.get("fps", 30) * 2))]] + [t_eind]  # elke ~2 s
         for t in stappen:
@@ -231,14 +266,15 @@ def bereken(data: dict, events: list[dict], band: str | None = None) -> dict:
                 cum[deel(mijn[j])] += mijn[j][3]; j += 1
             st = speeltijd(t)
             if st >= START_NA:
-                tijdlijn.append([round(t, 2), totaal_cijfer(cum, st, n)])
+                tijdlijn.append([round(t, 2), totaal_cijfer(cum, st, n, bisect.bisect_right(mijn_t, t) if tn else None)])
         totaal_tijd = speeltijd(t_eind)
         per_onderdeel = {o: round(sum(a[3] for a in mijn if a[2] == o), 3) for o in ONDERDELEN}
         uit["spelers"][sid] = {
             "eind": tijdlijn[-1][1] if tijdlijn else None,
             "impact": round(sum(a[3] for a in mijn), 3),
             "speeltijd": round(totaal_tijd),
-            "onderdelen": {o: {"impact": v, "cijfer": cijfer(v, totaal_tijd, n.get(o, STANDAARD_NORM[o]))} for o, v in per_onderdeel.items()},
+            "onderdelen": {o: {"impact": v, "cijfer": cijfer(v, totaal_tijd, n.get(o, STANDAARD_NORM[o]), len(mijn_t) if tn else None, tn)}
+                           for o, v in per_onderdeel.items()},
             "tijdlijn": tijdlijn,
             "acties": [[a[0], a[2], a[3], a[4]] for a in mijn],
         }

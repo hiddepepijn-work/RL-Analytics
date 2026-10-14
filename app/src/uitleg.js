@@ -115,7 +115,7 @@ export const UITLEG = {
   'mechanics.wallaerial': 'Vanaf de muur de lucht in voor een touch.',
   'mechanics.backboard': 'Bal van de achterwand opvangen of verdedigen.',
   // Impact
-  'impact.rating': 'Wedstrijdcijfer 3–10, live vanaf 1 minuut speeltijd. Elke actie geeft plus- of minpunten. Het totaal heeft twee lagen: (1) doelbijdrage — schoten, goals, gemiste kansen, assists, xA, reddingen, fouten en tegengoals — in één munt, zodat een goal altijd zwaarder weegt dan een assist; (2) proces — passes, duels, kickoffs en balbezit — elk vergeleken met een gemiddelde speler van jouw rank. 6,5 = rank-gemiddelde, ≥8 = uitstekend.',
+  'impact.rating': 'Wedstrijdcijfer 3–10, live vanaf 1 minuut. Elke actie geeft plus- of minpunten, en een actie weegt altijd even zwaar (een goal in minuut 1 telt net zo als in minuut 5). Je wordt vergeleken met een gemiddelde speler van jouw rank: die verwachting loopt vooral op per balcontact, dus tussen acties blijft je cijfer bijna vlak; je zakt pas als je de bal raakt zonder er iets mee te doen (en een beetje als je helemaal niet meedoet). Twee lagen: doelbijdrage (schoten, goals, kansen, assists, xA, reddingen, fouten) in één munt, plus passes, duels, kickoffs en balbezit. 6,5 = rank-gemiddelde, ≥8 = uitstekend; boven 9 wordt elke stap moeilijker.',
   'impact.impact': 'Totaal van alle actie-punten in goal-equivalenten (1,0 ≈ één goal waard).',
   'impact.r_schieten': 'Cijfer voor schieten: xG van je schoten plus afwerking (goals boven xG), minpunten voor gemiste grote kansen en kansen die je liet liggen door een whiff.',
   'impact.r_passen': 'Cijfer voor passen: aangekomen passes, assists, gecreëerde kansen (xA, ook als je teamgenoot mist) en minpunten voor goede passes naar jou die je niet raakte.',

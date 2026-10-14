@@ -64,6 +64,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
     """→ [(tijd, speler, onderdeel, impact, omschrijving)] gesorteerd op tijd. kansen = data['kansen'] (kern/kansen.py)."""
     uit = []
     kansen = kansen or {}
+    team_goals = [(e["meta"]["timing"].get("time", 0), 0 if e["meta"].get("team_is_team_0") else 1) for e in events if e["meta"]["stream"] == "goal_context"]
 
     def voeg(t, s, o, w, oms, bijdrage=None):
         """bijdrage: telt mee in de doelbijdrage-laag (standaard: alles in Schieten en Verdedigen)."""
@@ -77,7 +78,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         voeg(s["tijd"], s["speler"], "Schieten", xg, f"Schot (kans {kans:.2f} → xG {xg:.2f})" if kans is not None else f"Schot (xG {xg:.2f})")
         if s.get("goal"):
             voeg(s["tijd"] + 0.01, s["speler"], "Schieten", 1 - xg, "Goal (afwerking)")
-        elif xg >= GROTE_KANS:
+        elif xg >= GROTE_KANS and not any(gt == team.get(s["speler"]) and s["tijd"] < g <= s["tijd"] + 4 for g, gt in team_goals):
             voeg(s["tijd"] + 0.01, s["speler"], "Schieten", -0.5 * xg, f"Grote kans gemist (xG {xg:.2f})")
     kans_whiffs = [(k["tijd"], k["speler"]) for k in kansen.get("gemist", [])]
     for k in kansen.get("gemist", []):

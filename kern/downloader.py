@@ -1,6 +1,6 @@
 """Onafgebroken 2v2-replays downloaden voor alle ranks, tot elk doel bereikt is of de gebruiker stopt.
 
-Doelen (gekozen door de gebruiker): elke rank 500 wedstrijden, Champion 5000.
+Doelen (gekozen door de gebruiker): elke rank 500 wedstrijden; Champion was 5000, op 14 okt teruggezet naar 1000 (genoeg).
 Elke keer wordt de rank aangevuld die procentueel het verst achterloopt.
 
 Stoppen: maak data/STOP_DOWNLOAD aan (of data/STOP voor alles).
@@ -32,7 +32,7 @@ BANDEN = [
     ("gold-1", "gold-3", 500),
     ("platinum-1", "platinum-3", 500),
     ("diamond-1", "diamond-3", 500),
-    ("champion-1", "champion-3", 5000),
+    ("champion-1", "champion-3", 1000),  # 14 okt: gebruiker: Champion hoeft niet meer (stond op 5000)
     ("grand-champion-1", "supersonic-legend", 500),
 ]
 os.environ["PYTHONIOENCODING"] = "utf-8"

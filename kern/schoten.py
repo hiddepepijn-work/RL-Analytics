@@ -27,7 +27,7 @@ ZWAARTEKRACHT = -650.0
 MAX_AUTO = 2300.0
 LABEL_VENSTER = 4.0
 PROJECTIE_S = 4.0
-NIEUWSTE_KOLOM = "schutter_snelheid"  # cache zonder deze kolom is van een oudere featureversie (kern/bijwerken.py)
+NIEUWSTE_KOLOM = "scoortouch"  # cache zonder deze kolom is van een oudere featureversie (kern/bijwerken.py)
 
 BAL_KOL = ["BallRigidBody", "CurrentTime"]
 SPELER_KOL = ["PlayerRigidBody", "PlayerBoost"]
@@ -94,16 +94,22 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
     events = eventcache.lijst(pad)
     touches = sorted(((e["meta"]["timing"].get("start_time", e["meta"]["timing"].get("time")), sleutel(e["meta"].get("primary_player")))
                       for e in events if e["meta"]["stream"] == "touch"), key=lambda x: x[0])
-    goals = [(e["meta"]["timing"]["time"], 0 if e["meta"].get("team_is_team_0") else 1)
+    goals = [(e["meta"]["timing"]["time"], 0 if e["meta"].get("team_is_team_0") else 1, sleutel(e["payload"]["payload"].get("scorer")))
              for e in events if e["meta"]["stream"] == "goal_context"]
     game_shots = [(e["payload"]["payload"]["time"], sleutel(e["payload"]["payload"].get("player_id")))
                   for e in events if e["meta"]["stream"] == "timeline" and e["payload"]["payload"].get("kind") == "Shot"]
 
-    scoortouches = set()
-    for g, gt in goals:
+    # Scoortouch = laatste touch van de speler die de game als scorer aanwijst (niet blind de laatste teamtouch:
+    # raken twee teamgenoten de bal vrijwel tegelijk, dan krijgt de scorer de goal). Geen scorer → laatste teamtouch.
+    scoortouches, dubbel = set(), set()
+    for g, gt, scorer in goals:
         laatste = [(x, s) for x, s in touches if x < g and team_van.get(s) == gt]
-        if laatste and g - laatste[-1][0] < 8:
-            scoortouches.add(laatste[-1])
+        van_scorer = [(x, s) for x, s in laatste if s == scorer]
+        kies = van_scorer[-1] if van_scorer and g - van_scorer[-1][0] < 8 else (laatste[-1] if laatste and g - laatste[-1][0] < 8 else None)
+        if kies:
+            scoortouches.add(kies)
+            dubbel |= {(x, s) for x, s in laatste if s != kies[1] and abs(x - kies[0]) < 0.3}  # gelijktijdige touch teamgenoot
+    goal_tijden = [(g, gt) for g, gt, _ in goals]
 
     def frame(tt):
         return int(min(len(t) - 1, max(0, np.searchsorted(t, tt))))
@@ -111,7 +117,7 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
     rijen = []
     for n, (tt, speler) in enumerate(touches):
         team = team_van.get(speler)
-        if team is None:
+        if team is None or (tt, speler) in dubbel:
             continue
         f = frame(tt + 0.1)  # balsnelheid net ná de touch
         bp, bv = bal[f, :3], bal[f, 3:]
@@ -130,7 +136,7 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
 
         # Label: goal team binnen venster, zonder latere touch van een teamgenoot ervóór
         volgende_eigen = next((x for x, s in touches[n + 1:] if team_van.get(s) == team), np.inf)
-        goal = (tt, speler) in scoortouches or any(team == gt and tt < g <= min(tt + LABEL_VENSTER, volgende_eigen + 0.05) for g, gt in goals)
+        goal = (tt, speler) in scoortouches or any(team == gt and tt < g <= min(tt + LABEL_VENSTER, volgende_eigen + 0.05) for g, gt in goal_tijden)
 
         f0 = frame(tt)
         verdedigers = [i for s, i in idx_van.items() if team_van[s] != team]
@@ -143,6 +149,7 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
             "game_shot": int(game_shot),
             **{k: feats[k] for k in list(feats)[10:]},
             "teamgrootte": len(rm["team_zero"]),
+            "scoortouch": int((tt, speler) in scoortouches),
             "goal": int(goal),
         })
     return rijen

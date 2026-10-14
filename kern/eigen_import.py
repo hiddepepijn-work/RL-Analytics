@@ -70,8 +70,12 @@ def beoordeel(p: Path, naam: str, gezien: set) -> dict:
         leeftijd = 0
     if leeftijd > 365:
         return r | {"oordeel": "apart", "reden": f"ouder dan een jaar ({r['datum']}): ander niveau/spelversie, niet in huidig profiel"}
+    # 14 okt: gebruiker wil opgegeven/korte wedstrijden ook in het profiel; stats en rating zijn per speeltijd
+    # genormaliseerd. Alleen < 60 s (nog geen cijfer) blijft apart.
+    if duur < 60:
+        return r | {"oordeel": "apart", "reden": f"te kort ({'±' if schatting else ''}{round(duur)} s): nog geen cijfer"}
     if duur < (330 if schatting else 290):
-        return r | {"oordeel": "apart", "reden": f"kort ({'±' if schatting else ''}{round(duur)} s): opgegeven of half opgeslagen"}
+        return r | {"oordeel": "mee", "reden": f"kort ({'±' if schatting else ''}{round(duur)} s): opgegeven of half opgeslagen, telt mee"}
     return r | {"oordeel": "mee", "reden": "volledige Ranked Doubles"}
 
 

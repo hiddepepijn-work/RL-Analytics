@@ -332,8 +332,10 @@ def voeg_races_toe(data: dict, events: list[dict]) -> None:
 def voeg_xgot_toe(data: dict, events: list[dict]) -> None:
     """xGOT (xG ná de touch van schoten die echt op doel gaan) en goals voorkomen (xGOT van schoten die je redde)."""
     from kern.kansen import sleutel
+    from kern.rating import redding_schot, touch_tijden
     team = {s["id"]: s["team"] for s in data["spelers"]}
     op_doel = [x for x in data["schoten"] if x.get("xgot") is not None]
+    tt = touch_tijden(events)
     voorkomen = {i: 0.0 for i in team}
     for e in events:
         pl = (e.get("payload") or {}).get("payload") or {}
@@ -342,10 +344,10 @@ def voeg_xgot_toe(data: dict, events: list[dict]) -> None:
         wie, t = sleutel(pl.get("player_id")), pl.get("time", 0)
         if wie not in team:
             continue
-        # laatste tegenstander-schot op doel vlak vóór de redding (zelfde koppeling als de rating)
-        kand = [x for x in op_doel if team.get(x["speler"]) not in (None, team[wie]) and t - 3 <= x["tijd"] <= t + 0.3]
-        if kand:
-            voorkomen[wie] += max(x["xgot"] for x in kand)
+        # zelfde koppeling als de rating: schot vóór de touch van de redder, geen goal
+        sch = redding_schot(t, wie, op_doel, team, tt.get(wie, []))
+        if sch:
+            voorkomen[wie] += sch["xgot"]
     for i in team:
         st = data["stats"]["spelers"][i]
         mijn = [x for x in op_doel if x["speler"] == i]

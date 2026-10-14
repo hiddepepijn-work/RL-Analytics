@@ -55,6 +55,15 @@ def sleutel(pid):
 GROTE_KANS = 0.35
 
 
+def redding_schot(t_save: float, wie: str, schoten: list[dict], team: dict[str, int], touches_wie: list[float]) -> dict | None:
+    """Welk tegenstander-schot hoort bij een redding? Het gevaarlijkste schot in de 3 s vóór de touch van de redder,
+    dat géén goal werd. De game meldt een Save soms pas na een rebound-goal (event 0,3–1 s te laat): zonder deze regels
+    kreeg de redder dan de xGOT van het doelpunt (bv. 0,98 voor een bal die erin ging)."""
+    tr = max([x for x in touches_wie if x <= t_save + 0.1], default=t_save)
+    kand = [s for s in schoten if team.get(s["speler"]) not in (None, team.get(wie)) and not s.get("goal") and tr - 3 <= s["tijd"] <= tr + 0.05]
+    return max(kand, key=lambda s: s.get("xgot") or s.get("xg") or 0) if kand else None
+
+
 def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: dict[str, int], kansen: dict | None = None) -> list[tuple]:
     """→ [(tijd, speler, onderdeel, impact, omschrijving)] gesorteerd op tijd. kansen = data['kansen'] (kern/kansen.py)."""
     uit = []
@@ -111,6 +120,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             voeg(p["tijd"], p["ontvanger"], "Passen", -0.03, "Goede pass niet geraakt")
 
     opp_schoten = sorted(schoten, key=lambda s: s["tijd"])
+    touches_per = touch_tijden(events)
     for e in events:
         m, pl = e["meta"], (e.get("payload") or {}).get("payload") or {}
         st, t = m["stream"], m["timing"].get("time", m["timing"].get("start_time", m["timing"].get("end_time", 0)))
@@ -119,9 +129,9 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             if soort == "Assist":
                 voeg(t, wie, "Passen", 0.25, "Assist", bijdrage=True)
             elif soort == "Save" and wie in team:
-                # xG van het laatste tegenstander-schot vlak ervoor = wat er voorkomen werd
-                kandidaat = [s for s in opp_schoten if team.get(s["speler"]) not in (None, team[wie]) and t - 3 <= s["tijd"] <= t + 0.3]
-                xg = max([s.get("xgot") or s.get("xg") or 0 for s in kandidaat], default=0)  # xGOT: schotkwaliteit, los van waar jij stond
+                # xGOT van het tegengehouden schot = wat er voorkomen werd (los van waar jij stond)
+                sch = redding_schot(t, wie, opp_schoten, team, touches_per.get(wie, []))
+                xg = (sch.get("xgot") or sch.get("xg") or 0) if sch else 0
                 voeg(t, wie, "Verdedigen", max(0.15, xg), f"Redding{f' (xGOT {xg:.2f})' if xg else ''}")
         elif st == "goal_context":
             laatste = sleutel(pl.get("defending_team_most_back_player"))

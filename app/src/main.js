@@ -88,6 +88,7 @@ function tekenTabel() {
 
 function tekenSpelersLive() {
   const d = staat.data
+  vorigeHud.clear()  // nieuwe boost-/cijferelementen
   const groep = (t) => d.spelers.map((s, k) => [s, k]).filter(([s]) => s.team === t).sort(([a], [b]) => b.stats.Score - a.stats.Score).map(([s, k]) => `
       <div class="speler">
         <span class="speler-streep" style="background:${KLEUR_CSS[t]}"></span>
@@ -143,21 +144,39 @@ function toonView(view) {
 document.querySelector('.nav').onclick = (e) => { const a = e.target.closest('[data-view]'); if (a) toonView(a.dataset.view) }
 
 // ── Afspelen ──
+// Alleen naar de DOM schrijven als de waarde echt verandert: elke schrijfactie kan stijl/layout van de pagina
+// opnieuw laten berekenen, en dat kostte elk frame ~5 ms (Layout) bij het afspelen.
+const vorigeHud = new Map()
+function zet(id, sleutel, waarde, schrijf) {
+  const k = id + sleutel
+  if (vorigeHud.get(k) === waarde) return
+  vorigeHud.set(k, waarde)
+  const el = $(id); if (el) schrijf(el, waarde)
+}
+const tekst = (el, v) => { el.textContent = v }
+// Breedte van de tijdlijn één keer meten (en bij resize), niet elk frame: lezen na schrijven forceert layout
+const tijdlijnBreedte = { w: 0 }
+new ResizeObserver(([e]) => { tijdlijnBreedte.w = e.contentRect.width; vorigeHud.delete('tijdlijnkopx') }).observe($('tijdlijnkop').parentElement)
+
 function werkHudBij() {
   const d = staat.data
   const [i] = viewer.zoek(staat.t)
-  $('tijd').textContent = klok(d.klok[i])
-  $('balsnelheid').textContent = `${Math.round(d.balSnelheid[i] * 0.036)} km/u`
+  zet('tijd', 't', klok(d.klok[i]), tekst)
+  zet('balsnelheid', 't', `${Math.round(d.balSnelheid[i] * 0.036)} km/u`, tekst)
   const s = scoreOp(d, staat.t)
-  $('score0').textContent = s[0]; $('score1').textContent = s[1]
-  d.spelers.forEach((sp, k) => { const el = $('boost' + k); if (el) el.style.width = sp.frames[i * 9 + 7] + '%' })
-  $('tijdlijnkop').style.left = `calc(${((staat.t - d.t[0]) / (d.t.at(-1) - d.t[0])) * 100}% - 1px)`
+  zet('score0', 't', String(s[0]), tekst); zet('score1', 't', String(s[1]), tekst)
+  d.spelers.forEach((sp, k) => zet('boost' + k, 'b', Math.round(sp.frames[i * 9 + 7]), (el, v) => { el.style.transform = `scaleX(${v / 100})` }))
+  // Tijdlijncursor via transform (compositor) i.p.v. left (layout)
+  const breedte = tijdlijnBreedte.w
+  zet('tijdlijnkop', 'x', Math.round(((staat.t - d.t[0]) / (d.t.at(-1) - d.t[0])) * breedte), (el, v) => { el.style.transform = `translateX(${v - 1}px)` })
   // Live cijfers: kleur per niveau, pijltje bij een verandering
   d.spelers.forEach((sp, k) => {
     const el = $('rating' + k); if (!el) return
     const r = ratingOp(d, sp.id, staat.t), vorige = staat.vorigeRating[k]
-    el.textContent = r == null ? '–' : r.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-    el.className = `rating-live num ${ratingKlasse(r)}`
+    const txt = r == null ? '–' : r.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    if (el.textContent !== txt) el.textContent = txt
+    const kl = `rating-live num ${ratingKlasse(r)}`
+    if (el._kl !== kl) { el.className = kl + (el.classList.contains('flits') ? ' flits' : ''); el._kl = kl }
     if (r != null && vorige != null && Math.abs(r - vorige) >= 0.05) {
       el.dataset.richting = r > vorige ? 'op' : 'neer'
       el.classList.add('flits'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('flits'), 900)

@@ -45,7 +45,7 @@
   --rand-zacht: rgba(255,255,255,.05);
   --kaart-bg: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
   --kaart-rand: rgba(255,255,255,.08);
-  --blur: blur(18px) saturate(140%);
+  --blur: none; /* was blur(18px): backdrop-blur moest elk frame opnieuw over de 3D-canvas; achtergrond is toch zacht */
   --accent: #8fb8ff;
   --radius: 18px;
   --display: 'Space Grotesk Variable', sans-serif;
@@ -196,7 +196,7 @@ svg { overflow: visible; }
 :root[data-thema="editorial"] .viewer { background: radial-gradient(ellipse at 50% 35%, #201c17, #0c0b0a 78%); }
 .label3d { font: 600 11px var(--font); padding: 2px 7px; border-radius: 6px; background: rgba(10,13,19,.8); border: 1px solid; white-space: nowrap; margin-bottom: 10px; color: #e8ecf2; }
 .label3d .boost { display: block; height: 3px; margin-top: 3px; border-radius: 2px; background: #2a3342; overflow: hidden; }
-.label3d .boost i { display: block; height: 100%; background: #f5cf4f; }
+.label3d .boost i { display: block; height: 100%; background: #f5cf4f; transform-origin: left; will-change: transform; }
 .speelbalk { display: flex; align-items: center; gap: 14px; margin: 14px 0 8px; }
 .speel { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--tekst); color: var(--bg); cursor: pointer; font-size: 13px; }
 .tijd { font-size: 16px; min-width: 52px; }
@@ -204,7 +204,7 @@ svg { overflow: visible; }
 .snelheden { margin-left: auto; }
 .tijdlijn { position: relative; height: 92px; cursor: pointer; }
 .tijdlijn canvas { width: 100%; height: 100%; display: block; }
-.tijdlijn-kop { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--tekst); pointer-events: none; box-shadow: 0 0 8px rgba(255,255,255,.4); }
+.tijdlijn-kop { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; will-change: transform; background: var(--tekst); pointer-events: none; box-shadow: 0 0 8px rgba(255,255,255,.4); }
 .voetnoot { margin-top: 6px; font-size: 11px; color: var(--tekst-3); }
 
 .team-groep + .team-groep { border-top: 1px solid var(--rand-zacht); margin-top: 6px; padding-top: 6px; }
@@ -212,7 +212,7 @@ svg { overflow: visible; }
 .speler-streep { align-self: stretch; border-radius: 2px; }
 .speler-naam { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .speler-boost { height: 3px; background: var(--paneel-2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
-.speler-boost i { display: block; height: 100%; background: #f5cf4f; }
+.speler-boost i { display: block; height: 100%; background: #f5cf4f; transform-origin: left; transform: scaleX(0); will-change: transform; }
 .speler-stats { display: grid; grid-template-columns: repeat(4, 22px); gap: 2px; text-align: center; font-size: 12.5px; }
 .speler-stats b { display: block; font-size: 8.5px; color: var(--tekst-3); font-weight: 500; letter-spacing: .05em; }
 .speler-score { font-size: 13px; color: var(--tekst-2); min-width: 32px; text-align: right; }
@@ -456,3 +456,6 @@ svg { overflow: visible; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+/* Afspelen: per frame veranderende tekst mag niet de layout van de hele pagina raken */
+.kaart, .hero, .kernstrip .vgl { contain: layout style; }

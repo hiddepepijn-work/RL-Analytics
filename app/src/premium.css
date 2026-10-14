@@ -65,7 +65,7 @@
 .rk-rij { display: grid; grid-template-columns: 86px 1fr 34px 46px; gap: 10px; align-items: center; font-size: 12.5px; cursor: help; padding: 2px 4px; border-radius: 6px; transition: background .15s; }
 .rk-rij:hover { background: var(--paneel-2); }
 .rk-spoor { position: relative; height: 7px; background: var(--paneel-2); border-radius: 4px; }
-.rk-spoor i { display: block; height: 100%; border-radius: 4px; transform-origin: left; animation: groei .7s var(--ease) both; }
+.rk-spoor i { display: block; height: 100%; border-radius: 4px; transform-origin: left; animation: groei .45s var(--ease) both; }
 .rk-spoor b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--tekst-3); }
 .rk-imp { font-size: 11px; text-align: right; }
 @keyframes groei { from { transform: scaleX(0) } }
@@ -92,7 +92,7 @@
 @keyframes draai { to { transform: rotate(360deg) } }
 
 /* Opkomst */
-.opkomst { animation: opkomst .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.opkomst { animation: opkomst .3s var(--ease) both; animation-delay: calc(var(--i, 0) * 22ms); }
 @keyframes opkomst { from { opacity: 0; transform: translateY(8px) } }
 
 /* Hover en interactie (zonder gloed) */
@@ -100,7 +100,7 @@
 .kaart:hover { border-color: rgba(255,255,255,.12); }
 .tegel, .kernstrip .vgl, .goal, .hm-kaart { transition: transform .2s var(--ease), border-color .2s var(--ease), box-shadow .25s var(--ease); }
 .tegel:hover, .kernstrip .vgl:hover, .hm-kaart:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(0,0,0,.9); }
-.vgl-balk i, .prij-vul, .mbalk-spoor i, .stapel i { transform-origin: left; animation: groei .8s var(--ease) both; }
+.vgl-balk i, .prij-vul, .mbalk-spoor i, .stapel i { transform-origin: left; animation: groei .45s var(--ease) both; }
 .vgl.klein { transition: background .15s; border-radius: 6px; }
 .vgl.klein:hover { background: var(--paneel-2); }
 .tabel tbody tr { transition: background .15s; }
@@ -133,7 +133,7 @@ button:active { transform: scale(.97); }
 .vorm { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding-top: 18px; }
 .vorm-balk { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; text-decoration: none; color: inherit; border-radius: 8px; padding: 0 2px; transition: background .15s; }
 .vorm-balk:hover { background: var(--paneel-2); }
-.vorm-balk i { width: 100%; max-width: 30px; border-radius: 6px 6px 3px 3px; transform-origin: bottom; animation: groeiV .7s var(--ease) both; }
+.vorm-balk i { width: 100%; max-width: 30px; border-radius: 6px 6px 3px 3px; transform-origin: bottom; animation: groeiV .45s var(--ease) both; }
 .vorm-cijfer { font-size: 11px; color: var(--tekst-2); }
 .vorm-uitslag { font: 700 10px var(--font); }
 .vorm-uitslag.w { color: var(--r-top); }

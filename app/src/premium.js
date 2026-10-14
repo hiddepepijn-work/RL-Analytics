@@ -65,7 +65,7 @@ export function telOp(root = document) {
     const doel = Number(el.dataset.tel), d = Number(el.dataset.dec ?? 0), suf = el.dataset.suf ?? ''
     if (!Number.isFinite(doel)) return
     if (rustig()) { el.textContent = nl(doel, d) + suf; return }
-    const t0 = performance.now(), duur = 650 + Math.min(400, Math.abs(doel) * 2)
+    const t0 = performance.now(), duur = 380 + Math.min(220, Math.abs(doel) * 2)
     const stap = (nu) => {
       const f = Math.min(1, (nu - t0) / duur), e = 1 - Math.pow(1 - f, 3)
       el.textContent = nl(doel * e, d) + suf
@@ -78,13 +78,11 @@ export function telOp(root = document) {
 // ── Opkomst: kaarten faden rustig in, kort na elkaar ────────────────────────
 export function opkomst(root, selector = '.kaart, .vgl, .tegel, .goal, .stats-groep, .cat-groep, .hm-kaart, .rating-kaart') {
   if (!root || rustig()) return
+  // Eerst alles lezen, dan alles schrijven, met één reflow ertussen (per element offsetWidth lezen gaf N layouts)
   const els = [...root.querySelectorAll(selector)].filter((el) => el.offsetParent !== null)
-  els.forEach((el, i) => {
-    el.style.setProperty('--i', Math.min(i, 14))
-    el.classList.remove('opkomst')
-    void el.offsetWidth
-    el.classList.add('opkomst')
-  })
+  els.forEach((el) => el.classList.remove('opkomst'))
+  void root.offsetWidth
+  els.forEach((el, i) => { el.style.setProperty('--i', Math.min(i, 8)); el.classList.add('opkomst') })
 }
 
 // ── Laad-skeleton ───────────────────────────────────────────────────────────

@@ -258,7 +258,8 @@ export class Viewer {
       naarQuat(this._q, fr, o + 3)
       if (glad) { naarQuat(this._q2, fr, j * SPELER_STRIDE + 3); a.groep.quaternion.slerpQuaternions(this._q, this._q2, f) }
       else a.groep.quaternion.copy(this._q)
-      a.boostEl.style.width = fr[o + 7] + '%'
+      const b = Math.round(fr[o + 7])
+      if (a.boost !== b) { a.boost = b; a.boostEl.style.transform = `scaleX(${b / 100})` }  // transform: geen layout per frame
       a.label.position.set(pos.x, pos.y + 160, pos.z)
       a.schijf.position.set(pos.x, 2, pos.z)
       // Gedemoleerd (kolom ≥ 0) of afwezig (parser vult (0,0,0) in, bv. tijdens goal-reset) → verbergen

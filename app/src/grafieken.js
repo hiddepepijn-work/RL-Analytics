@@ -117,7 +117,7 @@ export function tekenSchotkaart(svg, data, spelerNaam) {
   for (const sch of gesorteerd) {
     const [x, y] = plek(sch)
     const kl = KLEUR_CSS[sch.team]
-    const titel = `${spelerNaam(sch.speler)} · ${sch.goal ? 'goal' : 'schot'}${metXg ? ` · xG ${sch.xg.toFixed(2)}` : ''} · ${Math.round(sch.tijd - data.t[0])} s`
+    const titel = `${spelerNaam(sch.speler)} · ${sch.goal ? 'goal' : 'schot'}${metXg ? ` · xG ${sch.xg.toFixed(2)}${sch.xgot != null ? ` · xGOT ${sch.xgot.toFixed(2)}` : ' · naast'}` : ''} · ${Math.round(sch.tijd - data.t[0])} s`
     s += `<circle cx="${x}" cy="${-y}" r="${straal(sch)}" fill="${sch.goal ? kl : 'rgba(10,13,19,.55)'}" fill-opacity="${sch.goal ? 0.9 : 1}" stroke="${kl}" stroke-width="34"><title>${titel}</title></circle>`
   }
   // Gemiste kansen door een whiff: stippelcirkel (geen schot, wel een kans)

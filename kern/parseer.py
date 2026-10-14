@@ -16,6 +16,7 @@ import subtr_actor as sa
 from kern import passen as passmodule, schoten as schotmodule, statistieken
 
 XG_MODEL = Path(__file__).resolve().parent.parent / 'data' / 'modellen' / 'xg.joblib'
+XGOT_MODEL = XG_MODEL.with_name('xgot.joblib')
 
 FPS = 30
 BAL_KOLOMMEN = ["BallRigidBody", "BallRigidBodyQuaternions", "CurrentTime", "SecondsRemaining"]
@@ -155,9 +156,12 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
     gemist = []
     if XG_MODEL.exists():
         import joblib
-        gemist = kansen.kans_xg(data, ev, joblib.load(XG_MODEL), rank)
+        pakket = joblib.load(XG_MODEL)
+        kansen.kans_voor_touch(data, pakket, rank)
+        gemist = kansen.kans_xg(data, ev, pakket, rank)
     data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev)}
     voeg_kansen_toe(data)
+    voeg_xgot_toe(data, ev)
     # Live rating per speler (acties → cijfer t.o.v. de rank-norm)
     band = None
     if rank is not None and 0 <= rank < len(RANK_ORDE):
@@ -182,8 +186,18 @@ def schoten_met_xg(pad: Path, rank: int | None = None) -> list[dict]:
     rk = 3 if rank is None else rank  # rank onbekend → midden, algemeen model
     X = np.array([[r.get(f, 3) if f != "rank" else rk for f in pakket["features"]] for r in rijen], dtype=float)
     xg = voorspel(pakket, X, rk) if rank is not None else pakket["model"].predict_proba(X)[:, 1]
+    # xGOT: alleen schoten op doel (en goals), apart model zonder verdedigers (kern/xgot_model.py)
+    xgot = [None] * len(rijen)
+    if XGOT_MODEL.exists():
+        og = joblib.load(XGOT_MODEL)
+        op = [i for i, r in enumerate(rijen) if r["op_doel"] or r["goal"]]
+        if op:
+            Xo = np.array([[rijen[i].get(f, 3) if f != "rank" else rk for f in og["features"]] for i in op], dtype=float)
+            for i, x in zip(op, og["model"].predict_proba(Xo)[:, 1]):
+                xgot[i] = round(float(x), 3)
     return [{"tijd": r["tijd"], "team": r["team"], "speler": r["speler"], "plek": [r["bal_x"], r["bal_y"]],
-             "goal": r["goal"], "xg": round(float(x), 3), "op_doel": r["op_doel"]} for r, x in zip(rijen, xg)]
+             "goal": r["goal"], "xg": round(float(x), 3), "op_doel": int(r["op_doel"] or r["goal"]), "xgot": o}
+            for r, x, o in zip(rijen, xg, xgot)]
 
 
 def voeg_xg_toe(data: dict) -> None:
@@ -211,11 +225,39 @@ def voeg_kansen_toe(data: dict) -> None:
         a["grote_kansen_gemist"] = sum(1 for x in groot if not x["goal"]) + sum(1 for x in whiff if x["kans_xg"] >= GROTE_KANS)
         a["kansen_gewhifft"] = len(whiff)
         a["kans_xg_gewhifft"] = round(sum(x["kans_xg"] for x in whiff), 2)
+        mijn_s = [x for x in data["schoten"] if x["speler"] == i and x.get("kans") is not None and x["xg"] is not None]
+        a["schot_kwaliteit"] = round(sum(x["xg"] - x["kans"] for x in mijn_s), 2)  # xG ná − kans vóór de touch
         mijn = [c for c in k["creaties"] if c["speler"] == i]
         st["passen"]["kansen_gecreeerd"] = len(mijn)
         st["passen"]["xa"] = round(sum(c["xg"] for c in mijn), 2)
         st["passen"]["grote_kansen_gecreeerd"] = sum(1 for c in mijn if c["xg"] >= GROTE_KANS)
         st["verdedigen"]["fouten_voor_tegengoal"] = sum(1 for f in k["fouten"] if f["speler"] == i)
+
+
+def voeg_xgot_toe(data: dict, events: list[dict]) -> None:
+    """xGOT (xG ná de touch van schoten die echt op doel gaan) en goals voorkomen (xGOT van schoten die je redde)."""
+    from kern.kansen import sleutel
+    team = {s["id"]: s["team"] for s in data["spelers"]}
+    op_doel = [x for x in data["schoten"] if x.get("xgot") is not None]
+    voorkomen = {i: 0.0 for i in team}
+    for e in events:
+        pl = (e.get("payload") or {}).get("payload") or {}
+        if e["meta"]["stream"] != "timeline" or pl.get("kind") != "Save":
+            continue
+        wie, t = sleutel(pl.get("player_id")), pl.get("time", 0)
+        if wie not in team:
+            continue
+        # laatste tegenstander-schot op doel vlak vóór de redding (zelfde koppeling als de rating)
+        kand = [x for x in op_doel if team.get(x["speler"]) not in (None, team[wie]) and t - 3 <= x["tijd"] <= t + 0.3]
+        if kand:
+            voorkomen[wie] += max(x["xgot"] for x in kand)
+    for i in team:
+        st = data["stats"]["spelers"][i]
+        mijn = [x for x in op_doel if x["speler"] == i]
+        st["aanval"]["xgot"] = round(sum(x["xgot"] for x in mijn), 2)
+        st["aanval"]["op_doel"] = len(mijn)
+        st["aanval"]["xgot_min_goals"] = round(st["aanval"].get("goals", 0) - st["aanval"]["xgot"], 2)
+        st["verdedigen"]["goals_voorkomen"] = round(voorkomen[i], 2)
 
 
 def werk_index_bij() -> None:

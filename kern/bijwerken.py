@@ -105,7 +105,7 @@ def features_bijwerken() -> tuple[int, int]:
 
 def trainen() -> dict:
     uit = {}
-    for mod, bestand in (("kern.xg_model", "xg.json"), ("kern.xpass_model", "xpass.json")):
+    for mod, bestand in (("kern.xg_model", "xg.json"), ("kern.xgot_model", "xgot.json"), ("kern.xpass_model", "xpass.json")):
         r = subprocess.run([PY, "-m", mod], cwd=WORTEL, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode:
             log(f"training {mod} mislukt: " + r.stderr[-1500:].replace("\n", " | "))

@@ -200,7 +200,10 @@ $('camknoppen').onclick = (e) => {
   viewer.zetCamera(b.dataset.cam)
   $('camknoppen').querySelectorAll('button').forEach((x) => x.classList.toggle('actief', x === b))
 }
-if (params.get('cam')) viewer.zetCamera(params.get('cam'))
+if (params.get('cam')) {
+  viewer.zetCamera(params.get('cam'))
+  $('camknoppen').querySelectorAll('button').forEach((x) => x.classList.toggle('actief', x.dataset.cam === params.get('cam')))
+}
 
 let slepen = false
 const zoekNaar = (e) => {

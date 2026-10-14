@@ -56,10 +56,11 @@ export const UITLEG = {
   'verdedigen.tevervoor': 'Tegengoals waarbij je te ver naar voren stond om nog terug te komen. Lager is beter.',
   'verdedigen.sbv': 'Goals voorkomen: bij elke redding de xGOT van het schot dat je tegenhield, opgeteld. Een redding op een schot met xGOT 0,8 telt voor 0,8 voorkomen goal; een makkelijke bal recht op je af telt weinig. Zo zie je wie de echt moeilijke ballen redt.',
   // Duels
-  'duels.5050w': '50/50 gewonnen: jij en een tegenstander raken de bal tegelijk en jouw team houdt hem.',
+  'duels.5050w': '50/50 gewonnen: jij en een tegenstander raken de bal (vrijwel) tegelijk en de bal gaat jouw kant op. Let op: daarna kan de tegenstander de bal nog krijgen; winnen gaat om de richting.',
+  'duels.eerder': 'Races naar de bal gewonnen: jij en een tegenstander gingen allebei voor de bal en jij was er eerder. Uit onze data de waardevolste duelactie: na een gewonnen race scoort je team binnen 6 s in 11% van de gevallen, de tegenstander in 3%.',
   'duels.5050v': '50/50 verloren: de tegenstander kreeg de bal. Lager is beter.',
   'duels.whiffs': 'Je ging voor de bal en miste hem terwijl je er vlak bij was. Lager is beter; vaak het begin van een tegengoal.',
-  'duels.telaat': 'Een tegenstander was net eerder bij de bal dan jij. Lager is beter.',
+  'duels.telaat': 'Races naar de bal verloren: een tegenstander was net eerder bij de bal dan jij. Lager is beter.',
   'duels.demos': 'Tegenstanders vernietigd door ze op supersonic te raken.',
   'duels.demosin': 'Hoe vaak jij gedemoed werd. Lager is beter: je team speelt dan tijdelijk met één minder.',
   'duels.bumps': 'Tegenstanders geraakt zonder ze te vernietigen; verstoort hun actie.',

@@ -10,7 +10,7 @@ import { tekenProfiel } from './profiel_echt.js'
 import { tekenModellen } from './modellen.js'
 import { initUitleg, telOp, opkomst, skelet } from './premium.js'
 import { ratingOp, ratingKlasse, tekenRatingVerloop, tekenRatingsTab } from './ratings.js'
-import { tekenHero, tekenKernstrip, tekenGoals, tekenTeamstats, tekenSpelertabel, tekenPositie, tekenBoost, tekenCatalogus, playlistNaam } from './wedstrijd.js'
+import { tekenHero, tekenKernstrip, tekenGoals, tekenTeamstats, tekenSpelertabel, tekenPositie, tekenBoost, tekenCatalogus, playlistNaam, wedstrijdKlok } from './wedstrijd.js'
 
 const $ = (id) => document.getElementById(id)
 const MARKANT = { Goal: ['G', 1], Shot: ['S', 0.75], Save: ['R', 0.75], demolition: ['D', 0.6], flip_reset: ['F', 0.6], air_dribble: ['A', 0.6], ceiling_shot: ['C', 0.6], double_tap: ['2', 0.6] }
@@ -68,6 +68,7 @@ async function laad(bestand) {
   tekenSpelersLive()
   tekenEvents()
   tekenGoals($('goals'), data, naam)
+  document.querySelector('.schot-pop')?.remove()
   $('schotensub').textContent = tekenSchotkaart($('schotkaart'), data, naam)
   $('xgsub').textContent = tekenXgVerloop($('xgverloop'), data)
   tekenTeamstats($('teamstats'), data)
@@ -142,6 +143,42 @@ function toonView(view) {
   if (view === 'wedstrijd') { toonTab(staat.tab); if (staat.data) $('kruimel').innerHTML = `Wedstrijden <span class="dim">/</span> ${esc(playlistNaam(staat.data.meta))} <span class="num">${staat.data.meta.score[0]}–${staat.data.meta.score[1]}</span>` }
 }
 document.querySelector('.nav').onclick = (e) => { const a = e.target.closest('[data-view]'); if (a) toonView(a.dataset.view) }
+
+// ── Schotkaart: klik op een schot → detailkaart, met 'Bekijk' naar dat moment in de replay ──
+$('schotkaart').addEventListener('click', (e) => {
+  const punt = e.target.closest('[data-schot],[data-whiff]'), d = staat.data
+  document.querySelector('.schot-pop')?.remove()
+  $('schotkaart').querySelectorAll('.gekozen').forEach((x) => x.classList.remove('gekozen'))
+  if (!punt || !d) return
+  punt.classList.add('gekozen')
+  const whiff = punt.dataset.whiff != null
+  const s = whiff ? d.kansen.gemist[+punt.dataset.whiff] : d.schoten[+punt.dataset.schot]
+  const [x, y] = s.plek
+  const afstand = Math.round(Math.hypot(x, (s.team === 0 ? 5120 : -5120) - y) / 100)
+  const [i] = viewer.zoek(s.tijd + 0.15)
+  const kmu = Math.round((d.balSnelheid?.[i] ?? 0) * 0.036)
+  const creatie = (d.kansen?.creaties ?? []).filter((c) => c.ontvanger === s.speler && c.tijd <= s.tijd && s.tijd - c.tijd < 4).at(-1)
+  const [uitkomst, kl] = whiff ? ['Whiff', ''] : s.goal ? ['Goal', 'goal'] : s.xgot != null ? ['Op doel · gered', ''] : ['Naast', '']
+  const f2 = (v) => (v == null ? '–' : v.toFixed(2).replace('.', ','))
+  const cel = (l, v, stat) => `<div${stat ? ` class="info" data-stat="${stat}"` : ''}><span>${l}</span><b>${v}</b></div>`
+  const cellen = whiff
+    ? [cel('Kans-xG', f2(s.kans_xg), 'schieten.whiffxg'), cel('Afstand', `${afstand} m`), cel('Gevolg', 'kans verloren')]
+    : [cel('xG', f2(s.xg), 'schieten.xg'), cel('xGOT', s.xgot != null ? f2(s.xgot) : 'naast', 'schieten.xgot'), cel('Kans vóór touch', f2(s.kans), 'passen.xa'),
+       cel('Schot-kwaliteit', s.kans != null && s.xg != null ? `${s.xg >= s.kans ? '+' : ''}${f2(s.xg - s.kans)}` : '–', 'schieten.kwaliteit'),
+       cel('Afstand', `${afstand} m`), cel('Balsnelheid', `${kmu} km/u`)]
+  const pop = document.createElement('div')
+  pop.className = 'schot-pop'
+  pop.innerHTML = `<button class="sp-sluit" aria-label="Sluiten">×</button>
+    <div class="sp-kop"><i style="background:${KLEUR_CSS[s.team]}"></i><b>${esc(naam(s.speler))}</b><span class="num dim">${wedstrijdKlok(d, s.tijd)}</span><span class="sp-uit ${kl}">${uitkomst}</span></div>
+    <div class="sp-grid">${cellen.join('')}</div>
+    <div class="sp-voet"><span>${creatie ? `Kans gecreëerd door ${esc(naam(creatie.speler))}` : whiff ? '' : 'Eigen actie'}</span><button class="sp-bekijk">▶ Bekijk</button></div>`
+  $('schotkaart').closest('.kaart').appendChild(pop)
+  pop.querySelector('.sp-sluit').onclick = () => { pop.remove(); punt.classList.remove('gekozen') }
+  pop.querySelector('.sp-bekijk').onclick = () => {
+    staat.t = Math.max(d.t[0], s.tijd - 3); staat.speelt = true; $('speel').textContent = '❚❚'
+    document.querySelector('.kaart-3d')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+})
 
 // ── Afspelen ──
 // Alleen naar de DOM schrijven als de waarde echt verandert: elke schrijfactie kan stijl/layout van de pagina

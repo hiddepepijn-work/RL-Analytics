@@ -235,6 +235,7 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
                       "verdediging": verdediging.beoordeel(data, ev)}
     voeg_kansen_toe(data)
     voeg_xgot_toe(data, ev)
+    voeg_races_toe(data, ev)
     # Live rating per speler (acties → cijfer t.o.v. de rank-norm)
     band = None
     if rank is not None and 0 <= rank < len(RANK_ORDE):
@@ -311,6 +312,21 @@ def voeg_kansen_toe(data: dict) -> None:
         st["verdedigen"]["gevaarlijke_clearances"] = sum(1 for x in vd if x["na"] - x["voor"] >= 0.05 and x["na"] >= 0.15)
         groot = [x for x in vd if x["voor"] >= 0.1]
         st["verdedigen"]["clearance_kwaliteit_pct"] = round(100 * sum((x["voor"] - x["na"]) / x["voor"] for x in groot) / len(groot)) if groot else None
+
+
+def voeg_races_toe(data: dict, events: list[dict]) -> None:
+    """Races naar de bal (beaten_to_ball): de game-stats laten 'te laat bij de bal' altijd op 0 staan."""
+    from kern.kansen import sleutel
+    for s in data["spelers"]:
+        d = data["stats"]["spelers"][s["id"]]["duels"]
+        d["eerder_bij_bal"] = d["te_laat_bij_bal"] = 0
+    for e in events:
+        if e["meta"]["stream"] != "beaten_to_ball":
+            continue
+        pl = (e.get("payload") or {}).get("payload") or {}
+        for wie, k in ((sleutel(pl.get("winner")), "eerder_bij_bal"), (sleutel(pl.get("player")), "te_laat_bij_bal")):
+            if wie in data["stats"]["spelers"]:
+                data["stats"]["spelers"][wie]["duels"][k] += 1
 
 
 def voeg_xgot_toe(data: dict, events: list[dict]) -> None:

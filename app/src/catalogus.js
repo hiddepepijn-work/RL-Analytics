@@ -86,6 +86,7 @@ export const GROEPEN = [
       s('5050w', '50/50 gewonnen', 'duels.5050_gewonnen'),
       s('5050v', '50/50 verloren', 'duels.5050_verloren', { beter: 'laag' }),
       s('whiffs', 'Whiffs', 'duels.whiffs', { beter: 'laag', uitleg: 'Bal gemist terwijl hij er vlak bij was' }),
+      s('eerder', 'Eerder bij de bal', 'duels.eerder_bij_bal', { uitleg: 'Races naar de bal gewonnen' }),
       s('telaat', 'Te laat bij de bal', 'duels.te_laat_bij_bal', { beter: 'laag' }),
       s('demos', "Demo's gemaakt", 'duels.demos_gemaakt'),
       s('demosin', "Demo's gekregen", 'duels.demos_gekregen', { beter: 'laag' }),

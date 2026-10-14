@@ -34,6 +34,28 @@ const eindRating = (data, s) => data.rating?.spelers?.[s.id]?.eind
 const mvp = (data) => [...data.spelers].sort((a, b) => (eindRating(data, b) ?? b.stats.Score / 100) - (eindRating(data, a) ?? a.stats.Score / 100))[0]
 const rKlasse = (r) => r == null ? 'r-geen' : r >= 8 ? 'r-top' : r >= 7 ? 'r-goed' : r >= 6 ? 'r-gem' : r >= 5 ? 'r-onder' : 'r-slecht'
 
+// Speelklok op het moment t (mm:ss gespeeld; overtime als OT+s)
+export function wedstrijdKlok(data, t) {
+  const ts = data.t
+  let lo = 0, hi = ts.length - 1
+  while (hi - lo > 1) { const mi = (lo + hi) >> 1; ts[mi] <= t ? (lo = mi) : (hi = mi) }
+  const rest = data.klok?.[lo]
+  if (rest == null) return klok(t - ts[0])
+  if (rest > 0) return klok(300 - rest)
+  const ot = ts.findIndex((x, i) => data.klok[i] === 0)
+  return `OT+${klok(Math.max(0, t - ts[Math.max(0, ot)]))}`
+}
+
+// Voetbalstijl: "Sand ツ 2:27, 3:54" per team, in volgorde van de eerste goal
+function scorers(data, team) {
+  const per = new Map()
+  for (const g of data.events.filter((e) => e.soort === 'Goal' && e.team === team)) {
+    const naam = data.spelers.find((s) => s.id === g.speler)?.naam ?? '?'
+    per.set(naam, [...(per.get(naam) ?? []), wedstrijdKlok(data, g.tijd)])
+  }
+  return [...per].map(([n, ts]) => `<div><span class="hs-naam">${esc(n)}</span> <span class="num dim">${ts.join(', ')}</span></div>`).join('')
+}
+
 export function tekenHero(el, data) {
   const m = data.meta, top = mvp(data)
   const team = (t) => data.spelers.filter((s) => s.team === t).sort((a, b) => b.stats.Score - a.stats.Score)
@@ -50,7 +72,8 @@ export function tekenHero(el, data) {
     <div class="hero-midden">
       <div class="hero-meta">${esc(playlistNaam(m))} · ${m.teamgrootte}v${m.teamgrootte} · ${esc((m.map ?? '').replace(/_P$/, '').replace(/_/g, ' '))}</div>
       <div class="hero-score"><span class="s0" data-tel="${m.score[0]}">${m.score[0]}</span><span class="hero-streep">–</span><span class="s1" data-tel="${m.score[1]}">${m.score[1]}</span></div>
-      <div class="hero-sub">${klok(m.duur)} gespeeld · seizoen ${m.seizoen}${m.datum ? ` · ${esc(m.datum.slice(0, 10))}` : ''}</div>
+      <div class="hero-scorers"><div class="hs links">${scorers(data, 0)}</div><div class="hs rechts">${scorers(data, 1)}</div></div>
+      <div class="hero-sub">${m.datum ? esc(m.datum.slice(0, 10)) : ''}${m.duur ? ` · ${klok(m.duur)}` : ''}</div>
     </div>
     <div class="hero-team rechts">
       <div class="hero-teamnaam">${winnaar === 1 ? '<span class="winst">Winst</span>' : ''}Oranje<i style="background:${KLEUR_CSS[1]}"></i></div>
@@ -80,7 +103,7 @@ export function tekenKernstrip(el, data) {
     vergelijk('xG', som('aanval.xg', 0), som('aanval.xg', 1), (v) => v.toFixed(2).replace('.', ',')),
     vergelijk('Schotpogingen', som('aanval.schot_pogingen', 0), som('aanval.schot_pogingen', 1), n),
     vergelijk('50/50 gewonnen', som('duels.5050_gewonnen', 0), som('duels.5050_gewonnen', 1), n),
-    vergelijk('Boost gestolen', som('boost.gestolen', 0), som('boost.gestolen', 1), n),
+    vergelijk('Reddingen', som('verdedigen.saves', 0), som('verdedigen.saves', 1), n),
   ].join('')
 }
 
@@ -100,16 +123,29 @@ export function tekenGoals(el, data, naam) {
   }).join('') || '<div class="dim">Geen doelpunten</div>'
 }
 
+// Per onderdeel eerst de stats die een analist het eerst wil zien; de rest onder 'Meer'
+const KERN = {
+  schieten: ['goals', 'xg', 'xgot', 'pogingen', 'opdoel', 'grotekans'],
+  passen: ['assists', 'xa', 'kansen', 'passes', 'centers'],
+  balbezit: ['touches', 'bezit', 'controletijd', 'vooruit'],
+  verdedigen: ['saves', 'sbv', 'gevaarweg', 'gevclear', 'clears', 'fout'],
+  duels: ['5050w', '5050v', 'eerder', 'telaat', 'whiffs', 'demos'],
+  kickoffs: ['kow', 'kov'],
+  boost: ['bpm', 'gem', 'gestolen', 'nul'],
+  positie: ['verdediging', 'midden', 'aanval', 'afstbal'],
+}
+
 export function tekenTeamstats(el, data) {
-  el.innerHTML = GROEPEN.map((g) => {
-    const rijen = g.stats.filter((s) => s.pad && s.team).map((s) =>
-      vergelijk(s.label, teamWaarde(s, data, 0), teamWaarde(s, data, 1), (v) => format(s, v), s.beter, true, `${s.groep}.${s.id}`))
-    const later = g.stats.filter((s) => !s.pad)
-    if (!rijen.length && !later.length) return ''
+  el.innerHTML = GROEPEN.filter((g) => g.id !== 'impact').map((g) => {
+    const stats = g.stats.filter((s) => s.pad && s.team)
+    if (!stats.length) return ''
+    const kern = KERN[g.id] ? KERN[g.id].map((id) => stats.find((s) => s.id === id)).filter(Boolean) : stats.slice(0, 4)
+    const rest = stats.filter((s) => !kern.includes(s))
+    const rij = (s) => vergelijk(s.label, teamWaarde(s, data, 0), teamWaarde(s, data, 1), (v) => format(s, v), s.beter, true, `${s.groep}.${s.id}`)
     return `<div class="kaart stats-groep">
-      <div class="kaart-kop"><h3>${g.naam}</h3><span class="sub">${g.vraag}</span></div>
-      ${rijen.join('')}
-      ${later.length ? `<div class="later">${later.map((s) => `<span class="chip" title="${esc(s.uitleg ?? '')}">${s.status === 'model' ? '◇' : '◐'} ${s.label}</span>`).join('')}</div>` : ''}
+      <div class="kaart-kop"><h3>${g.naam}</h3></div>
+      ${kern.map(rij).join('')}
+      ${rest.length ? `<details class="meer"><summary>Meer (${rest.length})</summary>${rest.map(rij).join('')}</details>` : ''}
     </div>`
   }).join('')
 }

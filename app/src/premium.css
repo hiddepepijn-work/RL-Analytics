@@ -140,3 +140,35 @@ button:active { transform: scale(.97); }
 .vorm-uitslag.v { color: var(--r-slecht); }
 @keyframes groeiV { from { transform: scaleY(0) } }
 @media (max-width: 900px) { .profiel-ratings { grid-template-columns: 1fr; } }
+
+/* ═══ Minimalistischer + doelpuntenmakers + klikbare schotkaart (14 okt) ═══ */
+.hero-scorers { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 6px 0 2px; font-size: 12.5px; min-height: 1em; }
+.hero-scorers .hs.links { text-align: right; }
+.hero-scorers .hs-naam { color: var(--tekst); font-weight: 600; }
+.hero-scorers .hs.links .hs-naam::before { content: '⚽ '; font-size: 10px; opacity: .7; }
+.hero-scorers .hs.rechts .hs-naam::after { content: ' ⚽'; font-size: 10px; opacity: .7; }
+.stats-groep .kaart-kop .sub { display: none; }
+details.meer { margin-top: 6px; }
+details.meer > summary { cursor: pointer; list-style: none; font-size: 12px; color: var(--dim, #8a93a3); padding: 6px 0 2px; user-select: none; }
+details.meer > summary::-webkit-details-marker { display: none; }
+details.meer > summary::before { content: '+ '; }
+details.meer[open] > summary::before { content: '− '; }
+details.meer > summary:hover { color: var(--tekst); }
+.schot-punt { cursor: pointer; transition: opacity .15s, stroke-width .15s; }
+#schotkaart:hover .schot-punt { opacity: .55; }
+#schotkaart .schot-punt:hover, #schotkaart .schot-punt.gekozen { opacity: 1; stroke-width: 60; }
+.kaart-schoten { position: relative; }
+.schot-pop { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px 16px; border-radius: 14px; background: rgba(14,17,26,.97);
+  border: 1px solid rgba(255,255,255,.1); box-shadow: 0 18px 40px -16px rgba(0,0,0,.8); font-size: 13px; z-index: 5; animation: opkomst .2s var(--ease) both; }
+.schot-pop .sp-kop { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.schot-pop .sp-kop i { width: 8px; height: 8px; border-radius: 50%; }
+.schot-pop .sp-kop b { font-weight: 650; }
+.schot-pop .sp-kop .sp-uit { margin-left: auto; margin-right: 18px; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.06); }
+.schot-pop .sp-kop .sp-uit.goal { background: rgba(80,200,120,.16); color: #7fe0a0; }
+.schot-pop .sp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; }
+.schot-pop .sp-grid div span { display: block; font-size: 11px; color: var(--dim, #8a93a3); }
+.schot-pop .sp-grid div b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.schot-pop .sp-voet { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: var(--dim, #8a93a3); }
+.schot-pop button { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: var(--tekst); cursor: pointer; }
+.schot-pop button:hover { background: rgba(255,255,255,.1); }
+.schot-pop .sp-sluit { position: absolute; top: 8px; right: 10px; border: 0; background: none; padding: 2px 6px; font-size: 15px; color: var(--dim, #8a93a3); }

@@ -27,7 +27,7 @@ ZWAARTEKRACHT = -650.0
 MAX_AUTO = 2300.0
 LABEL_VENSTER = 4.0
 PROJECTIE_S = 4.0
-NIEUWSTE_KOLOM = "scoortouch"  # cache zonder deze kolom is van een oudere featureversie (kern/bijwerken.py)
+NIEUWSTE_KOLOM = "bron_ndarray"  # cache zonder deze kolom is van een oudere featureversie (kern/bijwerken.py)
 
 BAL_KOL = ["BallRigidBody", "CurrentTime"]
 SPELER_KOL = ["PlayerRigidBody", "PlayerBoost"]
@@ -150,6 +150,7 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
             **{k: feats[k] for k in list(feats)[10:]},
             "teamgrootte": len(rm["team_zero"]),
             "scoortouch": int((tt, speler) in scoortouches),
+            "bron_ndarray": 1,  # cacheversie: ndarray-features (ruwe frames getest 14 okt: logloss 0,1923 → 0,1959, slechter)
             "goal": int(goal),
         })
     return rijen

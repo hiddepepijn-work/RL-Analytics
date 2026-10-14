@@ -6,6 +6,8 @@ Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld
   Passen     aangekomen pass +0,04 · assist +0,25 · kans gecreëerd +0,3 × xG van het schot/de kans (xA)
              goede pass naar jou niet geraakt −0,03
   Verdedigen redding +xGOT van het tegengehouden schot (min. 0,15) · fout voor tegengoal −0,10
+             gevaar weggewerkt / gevaarlijke clearance: 0,5 × (dreiging vóór − erna) van de tegenstander bij elke touch
+             (dreigingsmodel, kern/verdediging.py; reddingen uitgezonderd, die tellen al)
              tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
   Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans) · demo +0,05 / −0,03
   Kickoffs   kickoff gewonnen/verloren ±0,06
@@ -85,6 +87,18 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         voeg(k["tijd"], k["speler"], "Schieten", -0.4 * k["kans_xg"], f"Kans gemist door whiff (kans-xG {k['kans_xg']:.2f})")
     for c in kansen.get("creaties", []):
         voeg(c["tijd"], c["speler"], "Passen", 0.3 * c["xg"], f"Kans gecreëerd (xA {c['xg']:.2f})", bijdrage=True)
+    saves = [(_t, rating_sleutel) for _t, rating_sleutel in (
+        ((e["payload"]["payload"] or {}).get("time", 0), sleutel((e["payload"]["payload"] or {}).get("player_id")))
+        for e in events if e["meta"]["stream"] == "timeline" and ((e.get("payload") or {}).get("payload") or {}).get("kind") == "Save")]
+    for x in kansen.get("verdediging", []):
+        if x["voor"] < 0.05 or any(s == x["speler"] and abs(st - x["tijd"]) < 0.6 for st, s in saves):
+            continue
+        d = x["voor"] - x["na"]
+        if abs(d) < 0.02:
+            continue
+        oms = (f"Gevaar weggewerkt (dreiging {100 * x['voor']:.0f}% → {100 * x['na']:.0f}%)" if d > 0
+               else f"Gevaarlijke balbehandeling (dreiging {100 * x['voor']:.0f}% → {100 * x['na']:.0f}%)")
+        voeg(x["tijd"], x["speler"], "Verdedigen", 0.5 * d, oms)
     fout_bij_goal = {}
     for f in kansen.get("fouten", []):
         fout_bij_goal[f["goal_tijd"]] = f["speler"]

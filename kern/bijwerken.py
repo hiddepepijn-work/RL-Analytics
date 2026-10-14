@@ -133,6 +133,13 @@ def trainen() -> dict:
         if pad.exists():
             j = json.loads(pad.read_text(encoding="utf-8"))
             uit[bestand.split(".")[0]] = j.get("validatie", {}).get("xG-model") or {"auc": j.get("auc"), "n": j.get("n")}
+    # Dreigingsmodel (verdedigende stats): zware training (~1,8 mln momenten), dus hooguit één keer per dag
+    dm = WORTEL / "data" / "modellen" / "dreiging.joblib"
+    if not dm.exists() or time.time() - dm.stat().st_mtime > 24 * 3600:
+        r = subprocess.run([PY, "-m", "kern.dreiging", "--processen", "2"], cwd=WORTEL, check=False, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
+        if r.returncode:
+            log("training kern.dreiging mislukt: " + r.stderr[-1500:].replace("\n", " | "))
     return uit
 
 

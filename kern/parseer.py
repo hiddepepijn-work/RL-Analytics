@@ -230,7 +230,9 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         pakket = joblib.load(XG_MODEL)
         kansen.kans_voor_touch(data, pakket, rank)
         gemist = kansen.kans_xg(data, ev, pakket, rank)
-    data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev)}
+    from kern import verdediging
+    data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev),
+                      "verdediging": verdediging.beoordeel(data, ev)}
     voeg_kansen_toe(data)
     voeg_xgot_toe(data, ev)
     # Live rating per speler (acties → cijfer t.o.v. de rank-norm)
@@ -303,6 +305,12 @@ def voeg_kansen_toe(data: dict) -> None:
         st["passen"]["xa"] = round(sum(c["xg"] for c in mijn), 2)
         st["passen"]["grote_kansen_gecreeerd"] = sum(1 for c in mijn if c["xg"] >= GROTE_KANS)
         st["verdedigen"]["fouten_voor_tegengoal"] = sum(1 for f in k["fouten"] if f["speler"] == i)
+        # Dreiging vóór vs na je touch (kern/verdediging.py)
+        vd = [x for x in k.get("verdediging", []) if x["speler"] == i and x["voor"] >= 0.05]
+        st["verdedigen"]["gevaar_weggewerkt"] = round(sum(x["voor"] - x["na"] for x in vd), 2)
+        st["verdedigen"]["gevaarlijke_clearances"] = sum(1 for x in vd if x["na"] - x["voor"] >= 0.05 and x["na"] >= 0.15)
+        groot = [x for x in vd if x["voor"] >= 0.1]
+        st["verdedigen"]["clearance_kwaliteit_pct"] = round(100 * sum((x["voor"] - x["na"]) / x["voor"] for x in groot) / len(groot)) if groot else None
 
 
 def voeg_xgot_toe(data: dict, events: list[dict]) -> None:

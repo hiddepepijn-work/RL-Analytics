@@ -6,33 +6,31 @@ Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld
   Passen     aangekomen pass +0,04 · assist +0,25 · kans gecreëerd +0,3 × xG van het schot/de kans (xA)
              goede pass naar jou niet geraakt −0,03
   Verdedigen redding +xGOT van het tegengehouden schot (min. 0,15) · fout voor tegengoal −0,10
-             gevaar weggewerkt / gevaarlijke clearance: 0,5 × (dreiging vóór − erna) van de tegenstander bij elke touch
-             (dreigingsmodel, kern/verdediging.py; reddingen uitgezonderd, die tellen al)
              tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
   Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans) · demo +0,05 / −0,03
-  Kickoffs   kickoff gewonnen/verloren ±0,06
-  Balbezit   dreiging opbouwen met de bal (xT): bij elke touch binnen je balbezit de stijging van de zonewaarde
-             (kans dat je team binnen 10 s scoort vanaf die plek en balhoogte) boven het hoogste punt tot dan toe in dit bezit.
-             Live per touch, dus niet pas aan het eind. Terug met de bal (boost pakken, opnieuw opzetten) kost niets;
-             balverlies wordt elders afgerekend.
-Per onderdeel wordt de som vergeleken met wat een gemiddelde speler van de rank op dat moment heeft (normen uit de
-benchmark) → z-score → cijfer per onderdeel.
+  Kickoffs   kickoff-50/50 gewonnen/verloren ±0,06
+  Balbezit   betrokkenheid (+0,01 per touch en per seconde in balbezit), alleen voor het onderdeelcijfer
+  Balacties  alleen als straf: 0,5 × de waarde van een touch die de situatie slechter maakt (balverlies, gevaarlijke
+             balbehandeling), met het dreigingsmodel (kern/verdediging.py): (eigen dreiging erna − ervoor) +
+             (dreiging tegenstander ervoor − erna). Pakt ballchasers aan. Positieve touch-waarden tellen niet: te ruisig.
+             Schoten, reddingen en gecreëerde kansen hebben een eigen waarde en tellen hier niet.
+Verwachting = wat een gemiddelde Champion in dezelfde speeltijd oplevert. Getoetst op 196 spelers in 49 Champion-
+wedstrijden tegen blinde analistencijfers (14 okt): per tijd r 0,85 / zelfde MVP 38 van 49; per balcontact (straft
+betrokken spelers) r 0,74–0,80; positieve touch-waarden meetellen maakte het slechter.
+Per onderdeel → z-score → cijfer per onderdeel.
 
 Totaalcijfer in twee lagen (DELEN):
   Doelbijdrage  alles wat direct met goals te maken heeft (schoten, goals, gemiste kansen, assists, xA, reddingen,
                 fouten, tegengoals), in één munt vergeleken: een goal weegt dus altijd zwaarder dan een assist.
-  Proces        passes, duels, kickoffs en balbezit, elk tegen de eigen norm (anders verdwijnen ze naast goals).
+  Proces        passes, duels en kickoffs, elk tegen de eigen norm (anders verdwijnen ze naast goals).
 rating = 6,5 + 1,0 · gewogen z, begrensd op 3,0–10,0.
-De spreiding groeit met de wortel van de speeltijd, dus vroeg in de wedstrijd beweegt het cijfer minder snel uit.
+Spreiding = die van een hele wedstrijd (minstens 300 s): elke actie weegt in elke minuut even zwaar.
 """
 from __future__ import annotations
 
 import json
 import math
-from functools import cache
 from pathlib import Path
-
-from kern import zonewaarde
 
 WORTEL = Path(__file__).resolve().parent.parent
 NORM_PAD = WORTEL / "data" / "modellen" / "rating_norm.json"
@@ -43,7 +41,8 @@ START_NA = 60  # seconden speeltijd voordat er een cijfer getoond wordt
 STANDAARD_NORM = {"totaal": {"gem": 0.9, "sd": 0.55}, **{o: {"gem": 0.15, "sd": 0.12} for o in ONDERDELEN},
                   "Doelbijdrage": {"gem": 2.2, "sd": 1.5}, "Passen_proces": {"gem": 0.1, "sd": 0.1}}
 # Totaalcijfer: doelbijdrage in één munt + procesonderdelen elk t.o.v. de eigen norm
-DELEN = {"Doelbijdrage": 0.55, "Passen_proces": 0.12, "Balbezit": 0.13, "Duels": 0.12, "Kickoffs": 0.08}
+# (balacties tellen in de doelbijdrage: dezelfde munt als goals, dus Balbezit is geen apart deel meer)
+DELEN = {"Doelbijdrage": 0.65, "Passen_proces": 0.12, "Duels": 0.14, "Kickoffs": 0.09}
 
 
 def sleutel(pid):
@@ -54,12 +53,6 @@ def sleutel(pid):
 
 
 GROTE_KANS = 0.35
-ZONE_PAD = WORTEL / "data" / "modellen" / "zonewaarde.json"
-
-
-@cache
-def _zone():
-    return json.loads(ZONE_PAD.read_text(encoding="utf-8")) if ZONE_PAD.exists() else None
 
 
 def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: dict[str, int], kansen: dict | None = None) -> list[tuple]:
@@ -90,15 +83,22 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
     saves = [(_t, rating_sleutel) for _t, rating_sleutel in (
         ((e["payload"]["payload"] or {}).get("time", 0), sleutel((e["payload"]["payload"] or {}).get("player_id")))
         for e in events if e["meta"]["stream"] == "timeline" and ((e.get("payload") or {}).get("payload") or {}).get("kind") == "Save")]
+    # Balacties (alleen straf): touches die de situatie slechter maken volgens het dreigingsmodel. Touches met een
+    # eigen waarde (schot, redding, gecreëerde kans) slaan we over, anders telt hetzelfde moment dubbel.
+    eigen_waarde = [(s["tijd"], s["speler"]) for s in schoten] + [(c["tijd"], c["speler"]) for c in kansen.get("creaties", [])]
     for x in kansen.get("verdediging", []):
-        if x["voor"] < 0.05 or any(s == x["speler"] and abs(st - x["tijd"]) < 0.6 for st, s in saves):
+        if "eigen_voor" not in x or any(s == x["speler"] and abs(st - x["tijd"]) < 0.6 for st, s in saves) \
+                or any(s == x["speler"] and abs(st - x["tijd"]) < 0.15 for st, s in eigen_waarde):
             continue
-        d = x["voor"] - x["na"]
-        if abs(d) < 0.02:
-            continue
-        oms = (f"Gevaar weggewerkt (dreiging {100 * x['voor']:.0f}% → {100 * x['na']:.0f}%)" if d > 0
-               else f"Gevaarlijke balbehandeling (dreiging {100 * x['voor']:.0f}% → {100 * x['na']:.0f}%)")
-        voeg(x["tijd"], x["speler"], "Verdedigen", 0.5 * d, oms)
+        v = (x["eigen_na"] - x["eigen_voor"]) + (x["voor"] - x["na"])
+        if v > -0.01:
+            continue  # alleen touches die het slechter maken tellen (zie docstring)
+        if x["voor"] >= x["eigen_voor"]:  # verdedigende situatie
+            voeg(x["tijd"], x["speler"], "Verdedigen", 0.5 * v,
+                 f"Gevaarlijke balbehandeling (dreiging {100 * x['voor']:.0f}% → {100 * x['na']:.0f}%)")
+        else:
+            voeg(x["tijd"], x["speler"], "Balbezit", 0.5 * v,
+                 f"Balverlies (kans {100 * x['eigen_voor']:.0f}% → {100 * x['eigen_na']:.0f}%, tegenstander {100 * x['na']:.0f}%)", bijdrage=True)
     fout_bij_goal = {}
     for f in kansen.get("fouten", []):
         fout_bij_goal[f["goal_tijd"]] = f["speler"]
@@ -111,10 +111,6 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             voeg(p["tijd"], p["ontvanger"], "Passen", -0.03, "Goede pass niet geraakt")
 
     opp_schoten = sorted(schoten, key=lambda s: s["tijd"])
-    zone = _zone()
-    touches = sorted(((e["meta"]["timing"].get("start_time", e["meta"]["timing"].get("time", 0)), sleutel(e["meta"].get("primary_player")),
-                       ((e.get("payload") or {}).get("payload") or {}).get("ball_position")) for e in events if e["meta"]["stream"] == "touch"),
-                     key=lambda x: x[0])
     for e in events:
         m, pl = e["meta"], (e.get("payload") or {}).get("payload") or {}
         st, t = m["stream"], m["timing"].get("time", m["timing"].get("start_time", m["timing"].get("end_time", 0)))
@@ -133,19 +129,15 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             voeg(t, laatste, "Verdedigen", -0.06 if ander_fout else -0.12, "Tegengoal als laatste man")
         elif st == "fifty_fifty":
             p0, p1 = sleutel(pl.get("team_zero_player")), sleutel(pl.get("team_one_player"))
-            winnaar0 = pl.get("possession_team_is_team_0")
+            # Winnaar staat in winning_team_is_team_0 (possession_team_is_team_0 = wie daarna de bal had; was een bug)
+            winnaar0 = pl.get("winning_team_is_team_0")
             if winnaar0 is None or not p0 or not p1:
                 continue
-            onderdeel = "Kickoffs" if pl.get("is_kickoff") else "Duels"
-            if onderdeel == "Kickoffs":
-                continue  # kickoffs via de kickoff-stroom (voorkomt dubbel tellen)
             (w, v) = (p0, p1) if winnaar0 else (p1, p0)
-            voeg(t, w, "Duels", 0.03, "50/50 gewonnen"); voeg(t, v, "Duels", -0.03, "50/50 verloren")
-        elif st == "kickoff":
-            taker, adv_team = sleutel(m.get("primary_player")), pl.get("advantage_team_is_team_0")
-            if taker in team and adv_team is not None:
-                gewonnen = (team[taker] == 0) == adv_team
-                voeg(t, taker, "Kickoffs", 0.06 if gewonnen else -0.06, "Kickoff gewonnen" if gewonnen else "Kickoff verloren")
+            if pl.get("is_kickoff"):  # kickoff = de 50/50 op de middenstip (de kickoff-stroom mist er soms een)
+                voeg(t, w, "Kickoffs", 0.06, "Kickoff gewonnen"); voeg(t, v, "Kickoffs", -0.06, "Kickoff verloren")
+            else:
+                voeg(t, w, "Duels", 0.03, "50/50 gewonnen"); voeg(t, v, "Duels", -0.03, "50/50 verloren")
         elif st == "beaten_to_ball":
             voeg(t, sleutel(pl.get("player")), "Duels", -0.02, "Te laat bij de bal")
             voeg(t, sleutel(pl.get("winner")), "Duels", 0.02, "Eerder bij de bal")
@@ -157,19 +149,12 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             voeg(t, sleutel(pl.get("attacker")), "Duels", 0.05, "Demo gemaakt")
             voeg(t, sleutel(pl.get("victim")), "Duels", -0.03, "Gedemoed")
         elif st == "player_possession":
-            wie = sleutel(pl.get("player_id"))
-            if wie not in team or zone is None:
-                continue
-            richting = 1 if team[wie] == 0 else -1
-            t0, t1 = pl.get("start_time", t), pl.get("end_time", t)
-            hoogste = None
-            for tt, ts, bp in touches:
-                if ts != wie or not bp or tt < t0 - 0.05 or tt > t1 + 0.05:
-                    continue
-                w = float(zonewaarde.waarde3(zone, bp[0], bp[1] * richting, bp[2]))  # met balhoogte
-                if hoogste is not None and w > hoogste + 0.003:
-                    voeg(tt, wie, "Balbezit", w - hoogste, f"Dreiging opgebouwd (xT +{100 * (w - hoogste):.1f}%)")
-                hoogste = w if hoogste is None else max(hoogste, w)
+            # Betrokkenheid en controle, alleen voor het onderdeelcijfer Balbezit (geen deel van het totaal): zonder dit
+            # bestond Balbezit alleen uit balverlies-straffen en scoorde wie veel aan de bal is juist laag.
+            n, duur = pl.get("touch_count") or 0, pl.get("duration") or 0
+            if n >= 2:
+                voeg(pl.get("end_time", t), sleutel(pl.get("player_id")), "Balbezit", 0.01 * n + 0.01 * duur,
+                     f"Balbezit ({n} touches, {duur:.1f} s)", bijdrage=False)
     uit.sort(key=lambda a: a[0])
     return uit
 
@@ -195,12 +180,12 @@ def norm(band: str | None) -> dict:
 
 
 # Live verloop (14 okt, feedback gebruiker: "je verliest steeds punten, een 10 haal je alleen als je aan het eind scoort"):
-# - Verwachting loopt vooral op per balcontact (AANDEEL_TIJD per tijd): tussen acties blijft de lijn grotendeels vlak,
-#   je zakt pas als je de bal raakt zonder er iets mee te doen; helemaal niet meedoen kost nog steeds iets.
+# - Verwachting: AANDEEL_TIJD per speeltijd, de rest per balcontact. Per balcontact geeft een vlakkere lijn, maar
+#   straft betrokken spelers; getoetst tegen analisten won volledig per tijd (zie docstring bovenaan).
 # - Spreiding van een hele wedstrijd (minstens 300 s) in plaats van √(gespeelde tijd): een goal in minuut 1 weegt even
 #   zwaar als in minuut 5, dus geen vroege 10 die daarna wegzakt.
 # - Zachte grenzen: boven 9 en onder 4 wordt het steeds moeilijker, maar geen hard plafond.
-AANDEEL_TIJD = 0.25
+AANDEEL_TIJD = 1.0  # 14 okt: getoetst tegen analisten, per tijd het best (zie docstring); 0 = volledig per balcontact
 
 
 def verwacht(n: dict, speeltijd: float, touches: float | None = None, touch_norm: float | None = None) -> float:
@@ -277,7 +262,7 @@ def bereken(data: dict, events: list[dict], band: str | None = None) -> dict:
         stappen = [t for t in data["t"][:: max(1, int(data.get("fps", 30) * 2))]] + [t_eind]  # elke ~2 s
         for t in stappen:
             while j < len(mijn) and mijn[j][0] <= t:
-                cum[deel(mijn[j])] += mijn[j][3]; j += 1
+                d_ = deel(mijn[j]); cum[d_] = cum.get(d_, 0.0) + mijn[j][3]; j += 1
             st = speeltijd(t)
             if st >= START_NA:
                 tijdlijn.append([round(t, 2), totaal_cijfer(cum, st, n, bisect.bisect_right(mijn_t, t) if tn else None)])

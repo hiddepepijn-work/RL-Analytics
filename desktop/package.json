@@ -1,7 +1,7 @@
 {
   "name": "rl-analytics",
   "productName": "RL Analytics",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "RL Analytics: je Rocket League-stats, xG en profiel. Stuurt nieuwe replays automatisch door.",
   "author": "Hidde",
   "main": "main.js",

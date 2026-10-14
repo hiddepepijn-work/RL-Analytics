@@ -3,6 +3,8 @@
 // 2. Systeemvak-icoon: blijft actief als het venster dicht is.
 // 3. Bewaakt de Rocket League-replaymap en stuurt nieuwe replays via SSH naar de server-inbox;
 //    zodra de server de wedstrijd heeft verwerkt komt er een melding met de uitslag.
+// 4. Replays automatisch opslaan: leest het RL-logboek mee en houdt tijdens elke online wedstrijd even de
+//    'AutoSaveReplay'-toets (Backspace) vast, alleen als Rocket League het actieve venster is.
 const { app, BrowserWindow, Tray, Menu, Notification, safeStorage, nativeImage, ipcMain, shell, screen } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -109,6 +111,7 @@ function bouwTrayMenu() {
     { label: 'Laatste wedstrijd', enabled: !!c.laatste, click: () => toon(`/?replay=${c.laatste}`) },
     { type: 'separator' },
     { label: `Replays doorsturen: ${c.doorsturen === false ? 'uit' : 'aan'}`, click: () => { schrijfJson(CONFIG, { ...c, doorsturen: c.doorsturen === false }); bouwTrayMenu() } },
+    { label: `Replays automatisch opslaan: ${c.autoOpslaan === false ? 'uit' : 'aan'}`, click: () => { schrijfJson(CONFIG, { ...c, autoOpslaan: c.autoOpslaan === false }); bouwTrayMenu() } },
     { label: 'Starten met Windows', type: 'checkbox', checked: autostart,
       click: (m) => { app.setLoginItemSettings({ openAtLogin: m.checked, args: ['--verborgen'] }); bouwTrayMenu() } },
     { label: 'Logboek openen', click: () => shell.openPath(LOG) },
@@ -173,6 +176,66 @@ async function wachtOpVerwerking(stem) {
   log(`niet (tijdig) verwerkt: ${stem}`)
 }
 
+// ── Replays automatisch opslaan ──
+// Rocket League bewaart een replay alleen als je tijdens de wedstrijd de 'AutoSaveReplay'-toets vasthoudt
+// (standaard Backspace). We lezen Launch.log mee: 'JoinGame: OnJoinGameComplete bSuccess=(True)' = je zit in een
+// online wedstrijd (ook via party of 'opnieuw zoeken'; 'Joining -> None' miste die), playlist uit 'PlaylistId=(n)'.
+// ~25 s later houden we 1,5 s Backspace vast (SendInput met scancode, dus zoals een echte toets), maar alleen als
+// RocketLeague het actieve venster is; anders opnieuw proberen tot de wedstrijd voorbij is. 'HandleReplayExported'
+// (opgeslagen) of het hoofdmenu stopt het.
+const RL_LOG = path.join(os.homedir(), 'Documents', 'My Games', 'Rocket League', 'TAGame', 'Logs', 'Launch.log')
+const TOETS_PS = `Add-Type @"
+using System; using System.Diagnostics; using System.Runtime.InteropServices;
+public static class RlToets {
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint p);
+  [StructLayout(LayoutKind.Sequential)] struct KI { public ushort vk; public ushort scan; public uint flags; public uint time; public IntPtr extra; }
+  [StructLayout(LayoutKind.Explicit, Size = 40)] struct IN { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KI ki; }
+  [DllImport("user32.dll")] static extern uint SendInput(uint n, IN[] i, int size);
+  public static string Voorop() { uint p; GetWindowThreadProcessId(GetForegroundWindow(), out p); try { return Process.GetProcessById((int)p).ProcessName; } catch { return ""; } }
+  static void Stuur(uint flags) { var i = new IN[1]; i[0].type = 1; i[0].ki.scan = 0x0E; i[0].ki.flags = 0x0008 | flags; SendInput(1, i, Marshal.SizeOf(typeof(IN))); }
+  public static void Houd(int ms) { Stuur(0); System.Threading.Thread.Sleep(ms); Stuur(0x0002); }
+}
+"@
+if ([RlToets]::Voorop() -ne 'RocketLeague') { 'niet-voorop'; exit 0 }
+[RlToets]::Houd(1500); 'ok'`
+const TOETS_ARG = Buffer.from(TOETS_PS, 'utf16le').toString('base64')
+const opslaan = { pos: null, join: null, timer: null, tot: 0 }
+
+function drukOpslaanToets() {
+  opslaan.timer = null
+  if (leesJson(CONFIG, {}).autoOpslaan === false) return
+  if (Date.now() > opslaan.tot) { log('automatisch opslaan: wedstrijd voorbij zonder dat Rocket League voorop stond'); return }
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', TOETS_ARG], { windowsHide: true, timeout: 30000 }, (err, uit) => {
+    const r = (uit || '').toString().trim()
+    if (!err && r.endsWith('ok')) { log('automatisch opslaan: toets vastgehouden'); return }
+    opslaan.timer = setTimeout(drukOpslaanToets, 5000)  // RL niet voorop (of fout): straks opnieuw
+  })
+}
+
+function leesRlLog() {
+  let grootte
+  try { grootte = fs.statSync(RL_LOG).size } catch { return }
+  if (opslaan.pos == null || grootte < opslaan.pos) opslaan.pos = opslaan.pos == null ? grootte : 0  // eerste keer: alleen nieuwe regels; kleiner = nieuwe RL-sessie
+  if (grootte === opslaan.pos) return
+  const fd = fs.openSync(RL_LOG, 'r'), buf = Buffer.alloc(Math.min(grootte - opslaan.pos, 4 * 1024 * 1024))
+  fs.readSync(fd, buf, 0, buf.length, opslaan.pos); fs.closeSync(fd)
+  const tekst = buf.toString('utf8'), laatste = tekst.lastIndexOf('\n')
+  if (laatste < 0) return
+  opslaan.pos += Buffer.byteLength(tekst.slice(0, laatste + 1))
+  for (const regel of tekst.slice(0, laatste).split('\n')) {
+    const pl = regel.match(/PlaylistId=\((\d+)\)/)
+    if (pl) opslaan.join = Number(pl[1])
+    else if (/JoinGame: OnJoinGameComplete bSuccess=\(True\)/.test(regel)) {
+      log(`wedstrijd gestart (playlist ${opslaan.join ?? '?'}): replay wordt automatisch opgeslagen`)
+      opslaan.tot = Date.now() + 12 * 60 * 1000
+      clearTimeout(opslaan.timer); opslaan.timer = setTimeout(drukOpslaanToets, 25000)
+    } else if (/HandleReplayExported ID=/.test(regel) || /Browse: MENU_Main/.test(regel)) {
+      clearTimeout(opslaan.timer); opslaan.timer = null; opslaan.tot = 0
+    }
+  }
+}
+
 // ── Opstarten ──
 if (!app.requestSingleInstanceLock()) app.quit()
 else {
@@ -187,6 +250,7 @@ else {
     bouwTrayMenu()
     maakVenster()
     scan(); setInterval(scan, 15000)
+    leesRlLog(); setInterval(leesRlLog, 2000)
     log(`gestart${verborgenStart ? ' (verborgen)' : ''}`)
   })
   app.on('window-all-closed', (e) => e.preventDefault())

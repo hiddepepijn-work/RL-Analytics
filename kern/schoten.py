@@ -133,31 +133,43 @@ def schoten_uit_replay(pad: Path, band: str) -> list[dict]:
         f0 = frame(tt)
         verdedigers = [i for s, i in idx_van.items() if team_van[s] != team]
         aanvallers = [i for s, i in idx_van.items() if team_van[s] == team and s != speler]
-        baan = punten if t_doel is None else punten[punten[:, 0] <= t_doel]
-        vs = sorted(vereiste_snelheid(auto[f0, i], baan) for i in verdedigers if np.any(auto[f0, i, :3]))
-        def_y = [auto[f0, i, 1] * richting for i in verdedigers]
-        tussen = sum(1 for i in verdedigers if auto[f0, i, 1] * richting > bp[1] * richting)
-        in_doel = sum(1 for i in verdedigers if auto[f0, i, 1] * richting > DOEL_Y - 900 and abs(auto[f0, i, 0]) < 1200)
-        sp = idx_van[speler]
+        feats = schot_features(bp, bv, team, auto[f0], idx_van[speler], verdedigers, aanvallers, (punten, t_doel, ingang, mis))
         rijen.append({
             "replay": pad.stem, "band": band, "tijd": round(tt, 2), "team": team, "speler": speler,
             "bal_x": round(float(bp[0])), "bal_y": round(float(bp[1])),
-            "afstand": round(afstand), "hoek": round(float(np.degrees(np.arctan2(abs(bp[0]), max(DOEL_Y - bp[1] * richting, 1)))), 1),
-            "bal_z": round(float(bp[2])), "bal_snelheid": round(float(np.linalg.norm(bv))), "snelheid_naar_doel": round(v_doel),
-            "op_doel": int(t_doel is not None), "t_doel": round(t_doel, 2) if t_doel else -1,
-            "ingang_x": round(abs(ingang[0])) if ingang else -1, "ingang_z": round(ingang[1]) if ingang else -1,
-            "mis_afstand": round(mis) if mis is not None else -1,
+            **{k: feats[k] for k in list(feats)[:10]},
             "game_shot": int(game_shot),
-            "verdediger_min_v": round(min(vs[0], 9999)) if vs else 9999,
-            "verdediger_2e_v": round(min(vs[1], 9999)) if len(vs) > 1 else 9999,
-            "verdedigers_tussen": tussen, "verdedigers_in_doel": in_doel,
-            "verdediger_boost": round(float(np.mean([auto[f0, i, 6] for i in verdedigers])) / 2.55) if verdedigers else 0,
-            "schutter_z": round(float(auto[f0, sp, 2])), "schutter_boost": round(float(auto[f0, sp, 6]) / 2.55),
-            "aanvaller_dichtbij": sum(1 for i in aanvallers if np.linalg.norm(auto[f0, i, :2] - bp[:2]) < 2000),
+            **{k: feats[k] for k in list(feats)[10:]},
             "teamgrootte": len(rm["team_zero"]),
             "goal": int(goal),
         })
     return rijen
+
+
+def schot_features(bp, bv, team, autos, sp, verdedigers, aanvallers, projectie=None) -> dict:
+    """Model-features voor een schot vanaf balpositie bp met balsnelheid bv; autos = [speler, 7] op het schotmoment.
+    Ook voor een denkbeeldig schot, bv. de kans bij een whiff (kern/kansen.py). Volgorde = kolomvolgorde schoten.csv."""
+    richting = 1 if team == 0 else -1  # blauw valt aan richting +y
+    doel = np.array([0.0, richting * DOEL_Y, DOEL_Z / 3])
+    naar_doel = (doel - bp) / (np.linalg.norm(doel - bp) or 1)
+    punten, t_doel, ingang, mis = projectie or projecteer(bp, bv)
+    baan = punten if t_doel is None else punten[punten[:, 0] <= t_doel]
+    vs = sorted(vereiste_snelheid(autos[i], baan) for i in verdedigers if np.any(autos[i, :3]))
+    return {
+        "afstand": round(float(np.linalg.norm(doel[:2] - bp[:2]))),
+        "hoek": round(float(np.degrees(np.arctan2(abs(bp[0]), max(DOEL_Y - bp[1] * richting, 1)))), 1),
+        "bal_z": round(float(bp[2])), "bal_snelheid": round(float(np.linalg.norm(bv))), "snelheid_naar_doel": round(float(bv @ naar_doel)),
+        "op_doel": int(t_doel is not None), "t_doel": round(t_doel, 2) if t_doel else -1,
+        "ingang_x": round(abs(ingang[0])) if ingang else -1, "ingang_z": round(ingang[1]) if ingang else -1,
+        "mis_afstand": round(mis) if mis is not None else -1,
+        "verdediger_min_v": round(min(vs[0], 9999)) if vs else 9999,
+        "verdediger_2e_v": round(min(vs[1], 9999)) if len(vs) > 1 else 9999,
+        "verdedigers_tussen": sum(1 for i in verdedigers if autos[i, 1] * richting > bp[1] * richting),
+        "verdedigers_in_doel": sum(1 for i in verdedigers if autos[i, 1] * richting > DOEL_Y - 900 and abs(autos[i, 0]) < 1200),
+        "verdediger_boost": round(float(np.mean([autos[i, 6] for i in verdedigers])) / 2.55) if verdedigers else 0,
+        "schutter_z": round(float(autos[sp, 2])), "schutter_boost": round(float(autos[sp, 6]) / 2.55),
+        "aanvaller_dichtbij": sum(1 for i in aanvallers if np.linalg.norm(autos[i, :2] - bp[:2]) < 2000),
+    }
 
 
 def main(args: list[str]) -> None:

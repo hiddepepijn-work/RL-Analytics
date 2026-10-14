@@ -120,6 +120,12 @@ export function tekenSchotkaart(svg, data, spelerNaam) {
     const titel = `${spelerNaam(sch.speler)} · ${sch.goal ? 'goal' : 'schot'}${metXg ? ` · xG ${sch.xg.toFixed(2)}` : ''} · ${Math.round(sch.tijd - data.t[0])} s`
     s += `<circle cx="${x}" cy="${-y}" r="${straal(sch)}" fill="${sch.goal ? kl : 'rgba(10,13,19,.55)'}" fill-opacity="${sch.goal ? 0.9 : 1}" stroke="${kl}" stroke-width="34"><title>${titel}</title></circle>`
   }
+  // Gemiste kansen door een whiff: stippelcirkel (geen schot, wel een kans)
+  for (const k of metXg ? data.kansen?.gemist ?? [] : []) {
+    const [x, y] = k.plek
+    const titel = `${spelerNaam(k.speler)} · whiff · kans-xG ${k.kans_xg.toFixed(2)} · ${Math.round(k.tijd - data.t[0])} s`
+    s += `<circle cx="${x}" cy="${-y}" r="${straal({ xg: k.kans_xg })}" fill="none" stroke="${KLEUR_CSS[k.team]}" stroke-width="30" stroke-dasharray="70 55" opacity=".85"><title>${titel}</title></circle>`
+  }
   svg.innerHTML = s
   const per = [0, 1].map((t) => lijst.filter((x) => x.team === t))
   const som = (a) => a.reduce((z, x) => z + (x.xg ?? 0), 0).toFixed(1).replace('.', ',')

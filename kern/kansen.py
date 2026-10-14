@@ -1,0 +1,159 @@
+"""Kansen die geen schot werden, gecreëerde kansen en fouten die tot een tegengoal leiden.
+
+Kans-xG: bij een whiff op de aanvalshelft schieten we een denkbeeldig schot vanaf de bal richting doelmidden
+(1800 uu/s, boog die het doel haalt) en laten het xG-model beoordelen hoe groot die kans was, met de echte
+posities van verdedigers en aanvallers op dat moment. Een open-net-whiff krijgt zo een hoge kans-xG.
+
+Gecreëerde kans (xA): laatste teamgenoot die de bal raakte binnen 4 s vóór een schot of kans-whiff.
+
+Fout voor tegengoal (Opta: 'error leading to goal'): de laatste whiff of het laatste balverlies van het verdedigende
+team vóór de aanval waaruit de goal valt (max. 12 s ervoor, na de laatste kickoff). Niet als fout: een touch in de
+eigen derde (wegwerken onder druk), een geblokt/gered eigen schot, en een whiff in de laatste seconde (mislukte redding).
+"""
+from __future__ import annotations
+
+import bisect
+
+import numpy as np
+
+from kern.schoten import DOEL_Y, ZWAARTEKRACHT, schot_features
+
+KANS_SNELHEID = 1800.0
+KANS_MIN_XG = 0.10      # whiff telt pas als gemiste kans vanaf deze kans-xG
+GROTE_KANS = 0.35       # 'big chance' (Opta gebruikt ~0,35–0,4)
+CREATIE_VENSTER = 4.0
+FOUT_VENSTER = 12.0
+SPELER_STRIDE = 9
+
+
+def sleutel(pid):
+    if not pid:
+        return None
+    (k, v), = pid.items()
+    return f"{k}:{v}"
+
+
+def _tijd(e):
+    tm = e["meta"]["timing"]
+    return tm.get("time", tm.get("start_time", tm.get("end_time", 0)))
+
+
+def _stand(data: dict, t: float):
+    """Bal + auto's ([speler, 7] zoals in schoten.py: pos, snelheid (0), boost ruw) op tijd t."""
+    f = min(len(data["t"]) - 1, max(0, bisect.bisect_left(data["t"], t)))
+    bal = np.array(data["bal"][f * 7: f * 7 + 3], dtype=float)
+    autos = np.zeros((len(data["spelers"]), 7))
+    for i, s in enumerate(data["spelers"]):
+        r = s["frames"][f * SPELER_STRIDE: (f + 1) * SPELER_STRIDE]
+        autos[i, :3] = r[:3]
+        autos[i, 6] = r[7] * 2.55
+    return bal, autos
+
+
+def denkbeeldig_schot(bp: np.ndarray, team: int) -> np.ndarray:
+    """Balsnelheid voor een schot vanaf bp naar doelmidden (z ≈ 300) met vaste horizontale snelheid."""
+    richting = 1 if team == 0 else -1
+    doel = np.array([0.0, richting * (DOEL_Y + 50), 300.0])
+    vlak = doel[:2] - bp[:2]
+    d = float(np.linalg.norm(vlak)) or 1.0
+    t = d / KANS_SNELHEID
+    vz = (doel[2] - bp[2]) / t - 0.5 * ZWAARTEKRACHT * t
+    return np.array([*(vlak / d * KANS_SNELHEID), vz])
+
+
+def kans_xg(data: dict, events: list[dict], pakket, rank: int | None) -> list[dict]:
+    """Gemiste kansen door whiffs → [{tijd, speler, team, plek, kans_xg}]."""
+    from kern.per_rank import voorspel
+    idx = {s["id"]: i for i, s in enumerate(data["spelers"])}
+    team = {s["id"]: s["team"] for s in data["spelers"]}
+    schoten = data.get("schoten", [])
+    teamgrootte = data["meta"].get("teamgrootte") or len(data["spelers"]) // 2
+    kandidaten = []
+    for e in events:
+        if e["meta"]["stream"] != "whiff":
+            continue
+        pl = e["payload"]["payload"]
+        wie = sleutel(pl.get("player")) or sleutel(e["meta"].get("primary_player"))
+        if wie not in team:
+            continue
+        t = pl.get("time") or _tijd(e)
+        tm = team[wie]
+        richting = 1 if tm == 0 else -1
+        bp, autos = _stand(data, t)
+        if not np.any(bp) or bp[1] * richting < 0 or np.hypot(bp[0], DOEL_Y - bp[1] * richting) > 5000:
+            continue  # alleen op de aanvalshelft, binnen ~50 m van het doel
+        # De kans ging niet verloren als het team direct daarna alsnog schoot
+        if any(team.get(s["speler"]) == tm and t <= s["tijd"] <= t + 1.5 for s in schoten):
+            continue
+        verdedigers = [idx[s] for s in team if team[s] != tm]
+        aanvallers = [idx[s] for s in team if team[s] == tm and s != wie]
+        f = schot_features(bp, denkbeeldig_schot(bp, tm), tm, autos, idx[wie], verdedigers, aanvallers)
+        f["teamgrootte"] = teamgrootte
+        kandidaten.append(({"tijd": round(t, 2), "speler": wie, "team": tm, "plek": [round(float(bp[0])), round(float(bp[1]))]}, f))
+    if not kandidaten:
+        return []
+    rk = 3 if rank is None else rank
+    X = np.array([[f.get(k, 3) if k != "rank" else rk for k in pakket["features"]] for _, f in kandidaten], dtype=float)
+    p = voorspel(pakket, X, rk) if rank is not None else pakket["model"].predict_proba(X)[:, 1]
+    return [k | {"kans_xg": round(float(x), 3)} for (k, _), x in zip(kandidaten, p) if x >= KANS_MIN_XG]
+
+
+def touches(events: list[dict]) -> list[tuple[float, str, list]]:
+    return sorted(((_tijd(e), sleutel(e["meta"].get("primary_player")), (e["payload"]["payload"] or {}).get("ball_position"))
+                   for e in events if e["meta"]["stream"] == "touch"), key=lambda x: x[0])
+
+
+def creaties(data: dict, events: list[dict], kansen: list[dict]) -> list[dict]:
+    """Per schot of kans-whiff: de teamgenoot die hem klaarlegde → [{tijd, speler, ontvanger, xg, soort}]."""
+    team = {s["id"]: s["team"] for s in data["spelers"]}
+    tc = touches(events)
+    uit = []
+    momenten = [(s["tijd"], s["speler"], s.get("xg") or 0, "schot") for s in data.get("schoten", [])] + \
+               [(k["tijd"], k["speler"], k["kans_xg"], "kans") for k in kansen]
+    for t, wie, xg, soort in momenten:
+        if wie not in team or xg <= 0:
+            continue
+        # Laatste touch vóór het moment, niet van de schutter zelf
+        voor = [x for x in tc if t - CREATIE_VENSTER <= x[0] < t - 0.05 and x[1] != wie]
+        if not voor or team.get(voor[-1][1]) != team[wie]:
+            continue  # laatste andere touch was van de tegenstander → niemand creëerde deze kans
+        # Geen tegenstander-touch tussen de pass en het moment
+        if any(team.get(x[1]) not in (None, team[wie]) for x in tc if voor[-1][0] < x[0] < t):
+            continue
+        uit.append({"tijd": round(voor[-1][0], 2), "speler": voor[-1][1], "ontvanger": wie, "xg": round(xg, 3), "soort": soort})
+    return uit
+
+
+def fouten_voor_tegengoal(data: dict, events: list[dict]) -> list[dict]:
+    """→ [{tijd, speler, goal_tijd, soort: 'whiff'|'balverlies'}], hoogstens één per tegengoal."""
+    team = {s["id"]: s["team"] for s in data["spelers"]}
+    tc = touches(events)
+    eigen_schoten = {(round(s["tijd"], 1), s["speler"]) for s in data.get("schoten", [])}
+    kickoffs = sorted(_tijd(e) for e in events if e["meta"]["stream"] == "kickoff")
+    whiffs = sorted((e["payload"]["payload"].get("time") or _tijd(e), sleutel(e["payload"]["payload"].get("player")))
+                    for e in events if e["meta"]["stream"] == "whiff")
+    uit = []
+    for e in events:
+        if e["meta"]["stream"] != "goal_context":
+            continue
+        tg = _tijd(e)
+        g = 0 if e["meta"].get("team_is_team_0") else 1
+        d = 1 - g
+        ko = max([k for k in kickoffs if k < tg], default=-1)
+        ondergrens = max(tg - FOUT_VENSTER, ko + 0.5)
+        # Start van de scorende aanval: eerste touch van g na de laatste touch van d
+        d_touches = [x for x in tc if ondergrens <= x[0] < tg and team.get(x[1]) == d]
+        laatste_d = d_touches[-1] if d_touches else None
+        # 1) whiff van het verdedigende team die de bal niet meer terugkreeg
+        w = [(t, s) for t, s in whiffs if ondergrens <= t <= tg - 1.0 and team.get(s) == d
+             and (laatste_d is None or t >= laatste_d[0])]
+        if w:
+            uit.append({"tijd": round(w[-1][0], 2), "speler": w[-1][1], "goal_tijd": round(tg, 2), "soort": "whiff"})
+            continue
+        # 2) balverlies: laatste touch van d buiten de eigen derde, geen geblokt schot
+        if laatste_d and laatste_d[2] and tg - laatste_d[0] >= 1.0:
+            y = laatste_d[2][1]
+            in_eigen_derde = y < -1700 if d == 0 else y > 1700  # blauw (0) verdedigt −y
+            if not in_eigen_derde and (round(laatste_d[0], 1), laatste_d[1]) not in eigen_schoten:
+                uit.append({"tijd": round(laatste_d[0], 2), "speler": laatste_d[1], "goal_tijd": round(tg, 2), "soort": "balverlies"})
+    return uit

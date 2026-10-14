@@ -1,10 +1,13 @@
 """Live wedstrijdrating per speler, opgebouwd uit acties (zoals SofaScore/HLTV, maar met onze eigen modellen).
 
 Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld per onderdeel:
-  Schieten   schot +xG · goal +(1 − xG) (afwerking)
-  Passen     aangekomen pass +0,04 · assist +0,25 · goede pass naar jou niet geraakt −0,03
-  Verdedigen redding +xG van het tegengehouden schot (min. 0,15) · tegengoal als laatste man −0,12
-  Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 · demo +0,05 / −0,03
+  Schieten   schot +xG · goal +(1 − xG) (afwerking) · grote kans (xG ≥ 0,35) gemist −0,5 × xG
+             kans gemist door whiff −0,4 × kans-xG (denkbeeldig schot, zie kern/kansen.py)
+  Passen     aangekomen pass +0,04 · assist +0,25 · kans gecreëerd +0,3 × xG van het schot/de kans (xA)
+             goede pass naar jou niet geraakt −0,03
+  Verdedigen redding +xG van het tegengehouden schot (min. 0,15) · fout voor tegengoal −0,10
+             tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
+  Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans) · demo +0,05 / −0,03
   Kickoffs   kickoff gewonnen/verloren ±0,06
   Balbezit   balbezit met terreinwinst: +0,15 per 10.000 uu netto vooruit
 Per onderdeel wordt de som vergeleken met wat een gemiddelde speler van de rank op dat moment heeft (normen uit de
@@ -33,10 +36,14 @@ def sleutel(pid):
     return f"{k}:{v}"
 
 
-def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: dict[str, int]) -> list[tuple]:
-    """→ [(tijd, speler, onderdeel, impact, omschrijving)] gesorteerd op tijd."""
+GROTE_KANS = 0.35
+
+
+def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: dict[str, int], kansen: dict | None = None) -> list[tuple]:
+    """→ [(tijd, speler, onderdeel, impact, omschrijving)] gesorteerd op tijd. kansen = data['kansen'] (kern/kansen.py)."""
     uit = []
     voeg = lambda t, s, o, w, oms: uit.append((round(t, 2), s, o, round(w, 4), oms)) if s in team else None
+    kansen = kansen or {}
 
     # Schieten (xG uit ons model)
     for s in schoten:
@@ -44,6 +51,17 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         voeg(s["tijd"], s["speler"], "Schieten", xg, f"Schot (xG {xg:.2f})")
         if s.get("goal"):
             voeg(s["tijd"] + 0.01, s["speler"], "Schieten", 1 - xg, "Goal (afwerking)")
+        elif xg >= GROTE_KANS:
+            voeg(s["tijd"] + 0.01, s["speler"], "Schieten", -0.5 * xg, f"Grote kans gemist (xG {xg:.2f})")
+    kans_whiffs = [(k["tijd"], k["speler"]) for k in kansen.get("gemist", [])]
+    for k in kansen.get("gemist", []):
+        voeg(k["tijd"], k["speler"], "Schieten", -0.4 * k["kans_xg"], f"Kans gemist door whiff (kans-xG {k['kans_xg']:.2f})")
+    for c in kansen.get("creaties", []):
+        voeg(c["tijd"], c["speler"], "Passen", 0.3 * c["xg"], f"Kans gecreëerd (xA {c['xg']:.2f})")
+    fout_bij_goal = {}
+    for f in kansen.get("fouten", []):
+        fout_bij_goal[f["goal_tijd"]] = f["speler"]
+        voeg(f["tijd"], f["speler"], "Verdedigen", -0.10, "Fout voor tegengoal" + (" (whiff)" if f["soort"] == "whiff" else " (balverlies)"))
     # Passen (xPass-model)
     for p in passen:
         if p.get("compleet"):
@@ -66,7 +84,8 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
                 voeg(t, wie, "Verdedigen", max(0.15, xg), f"Redding{f' (xG {xg:.2f})' if xg else ''}")
         elif st == "goal_context":
             laatste = sleutel(pl.get("defending_team_most_back_player"))
-            voeg(t, laatste, "Verdedigen", -0.12, "Tegengoal als laatste man")
+            ander_fout = fout_bij_goal.get(round(t, 2)) not in (None, laatste)
+            voeg(t, laatste, "Verdedigen", -0.06 if ander_fout else -0.12, "Tegengoal als laatste man")
         elif st == "fifty_fifty":
             p0, p1 = sleutel(pl.get("team_zero_player")), sleutel(pl.get("team_one_player"))
             winnaar0 = pl.get("possession_team_is_team_0")
@@ -86,7 +105,9 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             voeg(t, sleutel(pl.get("player")), "Duels", -0.02, "Te laat bij de bal")
             voeg(t, sleutel(pl.get("winner")), "Duels", 0.02, "Eerder bij de bal")
         elif st == "whiff":
-            voeg(t, sleutel(pl.get("player")), "Duels", -0.04, "Whiff (bal gemist)")
+            wie = sleutel(pl.get("player"))
+            if not any(k_s == wie and abs(k_t - (pl.get("time") or t)) < 0.5 for k_t, k_s in kans_whiffs):  # kans-whiff telt al bij Schieten
+                voeg(t, wie, "Duels", -0.04, "Whiff (bal gemist)")
         elif st == "demolition":
             voeg(t, sleutel(pl.get("attacker")), "Duels", 0.05, "Demo gemaakt")
             voeg(t, sleutel(pl.get("victim")), "Duels", -0.03, "Gedemoed")
@@ -144,7 +165,7 @@ def totaal_cijfer(cum: dict, speeltijd: float, n: dict) -> float:
 
 def bereken(data: dict, events: list[dict], band: str | None = None) -> dict:
     team = {s["id"]: s["team"] for s in data["spelers"]}
-    lijst = acties(events, data.get("schoten", []), data.get("passen", []), team)
+    lijst = acties(events, data.get("schoten", []), data.get("passen", []), team, data.get("kansen"))
     speeltijd = speeltijd_functie(data["t"], data["klok"])
     n = norm(band)
     t_eind = data["t"][-1]

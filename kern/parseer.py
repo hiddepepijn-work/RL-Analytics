@@ -148,14 +148,22 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         data["passen"], pst = passmodule.passen_met_model(pad, rank)
         for s in data["spelers"]:
             data["stats"]["spelers"][s["id"]]["passen"].update(pst.get(s["id"], {}))
-    # Live rating per speler (acties → cijfer t.o.v. de rank-norm)
-    from kern import events as eventcache, rating
+    # Gemiste kansen (whiff), gecreëerde kansen (xA) en fouten voor tegengoal
+    from kern import events as eventcache, kansen, rating
     from kern.xg_model import RANK_ORDE
+    ev = eventcache.lijst(pad)
+    gemist = []
+    if XG_MODEL.exists():
+        import joblib
+        gemist = kansen.kans_xg(data, ev, joblib.load(XG_MODEL), rank)
+    data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev)}
+    voeg_kansen_toe(data)
+    # Live rating per speler (acties → cijfer t.o.v. de rank-norm)
     band = None
     if rank is not None and 0 <= rank < len(RANK_ORDE):
         laag = RANK_ORDE[rank]
         band = "ranked-doubles_grand-champion-1_supersonic-legend" if laag == "grand-champion" else f"ranked-doubles_{laag}-1_{laag}-3"
-    data["rating"] = rating.bereken(data, eventcache.lijst(pad), band)
+    data["rating"] = rating.bereken(data, ev, band)
     for sid, r in data["rating"]["spelers"].items():
         if sid in data["stats"]["spelers"]:
             data["stats"]["spelers"][sid]["impact"] = {"rating": r["eind"], "impact": r["impact"],
@@ -188,6 +196,26 @@ def voeg_xg_toe(data: dict) -> None:
         a["xg_per_schot"] = round(xg / len(mijn), 3) if mijn else None
         a["goals_min_xg"] = round(a["goals"] - xg, 2)
         a["schot_pogingen"] = len(mijn)
+
+
+def voeg_kansen_toe(data: dict) -> None:
+    """Grote kansen, gemiste kansen door whiffs, xA en fouten voor tegengoal per speler in data.stats."""
+    from kern.kansen import GROTE_KANS
+    k = data["kansen"]
+    for s in data["spelers"]:
+        i, st = s["id"], data["stats"]["spelers"][s["id"]]
+        groot = [x for x in data["schoten"] if x["speler"] == i and (x["xg"] or 0) >= GROTE_KANS]
+        whiff = [x for x in k["gemist"] if x["speler"] == i]
+        a = st["aanval"]
+        a["grote_kansen"] = len(groot) + sum(1 for x in whiff if x["kans_xg"] >= GROTE_KANS)
+        a["grote_kansen_gemist"] = sum(1 for x in groot if not x["goal"]) + sum(1 for x in whiff if x["kans_xg"] >= GROTE_KANS)
+        a["kansen_gewhifft"] = len(whiff)
+        a["kans_xg_gewhifft"] = round(sum(x["kans_xg"] for x in whiff), 2)
+        mijn = [c for c in k["creaties"] if c["speler"] == i]
+        st["passen"]["kansen_gecreeerd"] = len(mijn)
+        st["passen"]["xa"] = round(sum(c["xg"] for c in mijn), 2)
+        st["passen"]["grote_kansen_gecreeerd"] = sum(1 for c in mijn if c["xg"] >= GROTE_KANS)
+        st["verdedigen"]["fouten_voor_tegengoal"] = sum(1 for f in k["fouten"] if f["speler"] == i)
 
 
 def werk_index_bij() -> None:

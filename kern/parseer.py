@@ -44,6 +44,66 @@ def kolom(headers: list[str], naam: str) -> int:
     return headers.index(naam)
 
 
+def ruwe_frames(pad: Path, spelers_meta: list[dict]) -> dict:
+    """Posities, rotaties, snelheid en boost per opgenomen replay-frame (~30 Hz, elk frame een echte update).
+
+    get_ndarray… levert maar ~9 unieke posities per seconde (de rest zijn kopieën), waardoor auto's en bal in de
+    viewer schokkerig bewegen; de ruwe frames hebben ~26 unieke updates per seconde. Ontbrekend ('Empty', bv. demo
+    of goal-reset) → (0,0,0), dat verbergt de viewer.
+    """
+    fd = sa.get_replay_frames_data(str(pad))["frame_data"]
+    meta = fd["metadata_frames"]
+
+    def rij(f, boost=False):
+        d = f.get("Data") if isinstance(f, dict) else None
+        if not d:
+            return [0, 0, 0, 0, 0, 0, 1] + ([0, -1] if boost else [])
+        rb = d["rigid_body"]; l, q = rb["location"], rb["rotation"]
+        uit = [round(l["x"]), round(l["y"]), round(l["z"]), round(q["x"], 3), round(q["y"], 3), round(q["z"], 3), round(q["w"], 3)]
+        return uit + ([round((d.get("boost_amount") or 0) / 2.55), -1] if boost else [])  # ruw 0–255 → %
+
+    def snelheid(f):
+        d = f.get("Data") if isinstance(f, dict) else None
+        if not d:
+            return 0
+        v = d["rigid_body"].get("linear_velocity") or {}
+        return int(round((v.get("x", 0) ** 2 + v.get("y", 0) ** 2 + v.get("z", 0) ** 2) ** 0.5))
+
+    per_id = {speler_sleutel(pid): pl["frames"] for pid, pl in fd["players"]}
+    t = np.array([float(m["time"]) for m in meta])
+
+    def glad(rijen: list[list]) -> list:
+        """Dubbele frames (server stuurde even geen update) opvullen: positie lineair en rotatie genormaliseerd
+        tussen de echte updates ervoor en erna, op tijd. Niet over afwezige frames of gaten > 0,25 s heen."""
+        a = np.array(rijen, dtype=float)
+        if len(a) < 3:
+            return a.ravel().tolist()
+        pos, q = a[:, :3], a[:, 3:7]
+        aanwezig = np.any(pos != 0, axis=1)
+        nieuw = np.ones(len(a), bool)
+        nieuw[1:] = np.any(pos[1:] != pos[:-1], axis=1)
+        echt = np.flatnonzero(nieuw & aanwezig)
+        for k in range(len(echt) - 1):
+            i, j = echt[k], echt[k + 1]
+            if j - i < 2 or t[j] - t[i] > 0.25 or not aanwezig[i:j + 1].all():
+                continue
+            f = ((t[i + 1:j] - t[i]) / (t[j] - t[i]))[:, None]
+            pos[i + 1:j] = pos[i] + (pos[j] - pos[i]) * f
+            qj = q[j] if np.dot(q[i], q[j]) >= 0 else -q[j]  # kortste weg
+            qq = q[i] + (qj - q[i]) * f
+            q[i + 1:j] = qq / np.linalg.norm(qq, axis=1, keepdims=True)
+        a[:, :3] = np.round(pos); a[:, 3:7] = np.round(q, 3)
+        return [int(x) if k % len(a[0]) not in (3, 4, 5, 6) else float(x) for k, x in enumerate(a.ravel().tolist())]
+
+    return {
+        "t": [round(float(x), 3) for x in t],
+        "klok": [int(m.get("seconds_remaining") or 0) for m in meta],
+        "bal": glad([rij(f) for f in fd["ball_data"]["frames"]]),
+        "balSnelheid": [snelheid(f) for f in fd["ball_data"]["frames"]],
+        "spelers": [glad([rij(f, boost=True) for f in per_id.get(speler_sleutel(sm.get("remote_id")), [])]) for sm in spelers_meta],
+    }
+
+
 def parseer(pad: Path, rank: int | None = None) -> dict:
     """rank = index in RANK_ORDE (bv. 5 = Champion) → rank-specifieke modellen; None = algemeen model."""
     meta, arr = sa.get_ndarray_with_info_from_replay_filepath(
@@ -141,6 +201,17 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         "spelers": spelers,
         "events": events,
     }
+    # Vloeiende beweging: ruwe replay-frames i.p.v. de ndarray (zie ruwe_frames); valt terug als de lengtes niet kloppen
+    try:
+        ruw = ruwe_frames(pad, spelers_meta)
+        n = len(ruw["t"])
+        if n and len(ruw["bal"]) == 7 * n and all(len(f) == 9 * n for f in ruw["spelers"]):
+            data["t"], data["klok"], data["bal"], data["balSnelheid"] = ruw["t"], ruw["klok"], ruw["bal"], ruw["balSnelheid"]
+            for sp, f in zip(data["spelers"], ruw["spelers"]):
+                sp["frames"] = f
+            data["bron"] = "ruwe-frames"
+    except Exception as e:  # nooit de hele wedstrijd laten mislukken op de viewer-data
+        print(f"{pad.name}: ruwe frames overgeslagen ({type(e).__name__})")
     data["stats"] = statistieken.bereken(str(pad), data)
     data["schoten"] = schoten_met_xg(pad, rank)
     voeg_xg_toe(data)

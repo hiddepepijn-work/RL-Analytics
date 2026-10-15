@@ -38,11 +38,14 @@ def _bal_snelheid(data: dict, t: float) -> np.ndarray:
     return v if np.linalg.norm(v) < 7000 else np.zeros(3)
 
 
-def _situatie(data: dict, t: float, aanvaller: int) -> dict | None:
+def _situatie(data: dict, t: float, aanvaller: int, zonder: int | None = None) -> dict | None:
+    """Features van de spelsituatie op tijd t; zonder = index van een speler die we weghalen (demo-tegenfeitelijk)."""
     bp, autos = _stand(data, t)
     if not np.any(bp):
         return None
     autos = autos.copy(); autos[:, 6] /= 2.55  # dreigingsmodel verwacht boost in %
+    if zonder is not None:
+        autos[zonder] = 0  # afwezig: het model kent dat uit de training (gedemode spelers)
     teams = [s["team"] for s in data["spelers"]]
     return dreiging.features(bp, _bal_snelheid(data, t), autos, teams, aanvaller)
 
@@ -77,3 +80,46 @@ def beoordeel(data: dict, events: list[dict]) -> list[dict]:
         uit.append({"tijd": round(t, 2), "speler": wie, "voor": round(float(pv), 3), "na": round(1.0 if goal_tegen else float(pn), 3),
                     "eigen_voor": round(float(ev), 3), "eigen_na": round(1.0 if goal_eigen else float(en), 3)})
     return uit
+
+
+def fysiek(data: dict, ruwe_events: list[dict]) -> list[dict]:
+    """Demo's en bumps op een tegenstander, met hun tactische waarde volgens het dreigingsmodel.
+
+    Demo: tegenfeitelijk op het moment van de demo — (dreiging eigen team zonder slachtoffer − met slachtoffer) +
+    (dreiging tegenstander met − zonder). Een demo op de keeper tijdens je aanval of op de aanvaller die op de bal
+    afgaat is veel waard; een demo op het middenveld zonder bal in de buurt bijna niets.
+    Bump: haalt niemand weg maar duwt uit positie; waarde = verandering van dezelfde balans in de seconde erna.
+    → [{tijd, speler, slachtoffer, soort, waarde}]"""
+    pakket = _model()
+    if pakket is None:
+        return []
+    idx = {s["id"]: i for i, s in enumerate(data["spelers"])}
+    team = {s["id"]: s["team"] for s in data["spelers"]}
+    kand = []
+    for e in ruwe_events:
+        st, pl = e["meta"]["stream"], (e.get("payload") or {}).get("payload") or {}
+        t = pl.get("time") or e["meta"]["timing"].get("time", 0)
+        if st == "demolition":
+            a, v = sleutel(pl.get("attacker")), sleutel(pl.get("victim"))
+        elif st == "bump" and not pl.get("is_team_bump") and (pl.get("confidence") or 0) >= 0.5:
+            a, v = sleutel(pl.get("initiator")), sleutel(pl.get("victim"))
+        else:
+            continue
+        if a not in team or v not in team or team[a] == team[v]:
+            continue
+        eigen, tegen = team[a], 1 - team[a]
+        if st == "demolition":
+            sit = [_situatie(data, t - 0.1, eigen), _situatie(data, t - 0.1, eigen, idx[v]),
+                   _situatie(data, t - 0.1, tegen), _situatie(data, t - 0.1, tegen, idx[v])]
+        else:
+            sit = [_situatie(data, t - 0.1, eigen), _situatie(data, t + NA, eigen),
+                   _situatie(data, t - 0.1, tegen), _situatie(data, t + NA, tegen)]
+        if any(x is None for x in sit):
+            continue
+        kand.append((t, a, v, "demo" if st == "demolition" else "bump", sit))
+    if not kand:
+        return []
+    p = dreiging.voorspel(pakket, [x for *_, sit in kand for x in sit]).reshape(-1, 4)
+    # [eigen met/voor, eigen zonder/na, tegen met/voor, tegen zonder/na] → winst eigen + verlies tegenstander
+    return [{"tijd": round(t, 2), "speler": a, "slachtoffer": v, "soort": soort,
+             "waarde": round(float((q[1] - q[0]) + (q[2] - q[3])), 3)} for (t, a, v, soort, _), q in zip(kand, p)]

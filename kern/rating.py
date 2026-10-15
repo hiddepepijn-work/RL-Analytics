@@ -3,11 +3,15 @@
 Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld per onderdeel:
   Schieten   schot +xG · goal +(1 − xG) (afwerking) · grote kans (xG ≥ 0,35) gemist −0,5 × xG
              kans gemist door whiff −0,4 × kans-xG (denkbeeldig schot, zie kern/kansen.py)
-  Passen     aangekomen pass +0,04 · assist +0,25 · kans gecreëerd +0,3 × xG van het schot/de kans (xA)
+  Passen     aangekomen pass +0,04 · assist +ASSIST_BONUS · kans gecreëerd: AANDEEL_CREATIE × de kans vóór de touch
+             van de schutter (xA), en die waarde gaat áf van het schot: de kans wordt verdeeld, niet dubbel geteld.
+             Tap-in na een geweldige pass → vooral de aangever; moeilijke goal uit niets → vooral de schutter.
              goede pass naar jou niet geraakt −0,03
   Verdedigen redding +xGOT van het tegengehouden schot (min. 0,15) · fout voor tegengoal −0,10
              tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
-  Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans) · demo +0,05 / −0,03
+  Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans)
+             demo +0,02 / gedemoed −0,02; gevaarlijke demo of bump (dreigingswinst ≥ 0,03 volgens het dreigingsmodel,
+             kern/verdediging.fysiek): + die winst (demo) of de helft (bump), in de doelbijdrage
   Kickoffs   kickoff-50/50 gewonnen/verloren ±0,06
   Balbezit   betrokkenheid (+0,01 per touch en per seconde in balbezit), alleen voor het onderdeelcijfer
   Balacties  alleen als straf: 0,5 × de waarde van een touch die de situatie slechter maakt (balverlies, gevaarlijke
@@ -53,6 +57,9 @@ def sleutel(pid):
 
 
 GROTE_KANS = 0.35
+AANDEEL_CREATIE = 0.6  # deel van de gecreëerde kans voor de aangever (de schutter de rest + uitvoering); getoetst 15 okt
+ASSIST_BONUS = 0.35    # extra voor de game-assist (de bal ging er ook echt in)
+SCHUTTER_LEVERT_IN = True  # deel van de aangever gaat af van het schot (verdelen i.p.v. dubbel tellen)
 
 
 def redding_schot(t_save: float, wie: str, schoten: list[dict], team: dict[str, int], touches_wie: list[float]) -> dict | None:
@@ -75,11 +82,16 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         if s in team:
             uit.append((round(t, 2), s, o, round(w, 4), oms, o in ("Schieten", "Verdedigen") if bijdrage is None else bijdrage))
 
-    # Schieten (xG uit ons model)
+    # Schieten (xG uit ons model). Kwam de kans van een teamgenoot, dan krijgt die AANDEEL_CREATIE × de kans en de
+    # schutter de rest: schot = xG − (deel van de aangever).
+    creatie_bij = {(c["ontvanger"], round(c["moment"], 1)): c for c in kansen.get("creaties", []) if c.get("soort") == "schot" and "moment" in c}
     for s in schoten:
         xg = s.get("xg") or 0
         kans = s.get("kans")
-        voeg(s["tijd"], s["speler"], "Schieten", xg, f"Schot (kans {kans:.2f} → xG {xg:.2f})" if kans is not None else f"Schot (xG {xg:.2f})")
+        c = creatie_bij.get((s["speler"], round(s["tijd"], 1)))
+        deel_aangever = AANDEEL_CREATIE * c["xg"] if c else 0.0
+        oms = f"Schot (kans {kans:.2f} → xG {xg:.2f})" if kans is not None else f"Schot (xG {xg:.2f})"
+        voeg(s["tijd"], s["speler"], "Schieten", xg - (deel_aangever if SCHUTTER_LEVERT_IN else 0.0), oms + (" · kans gecreëerd door teamgenoot" if c else ""))
         if s.get("goal"):
             voeg(s["tijd"] + 0.01, s["speler"], "Schieten", 1 - xg, "Goal (afwerking)")
         elif xg >= GROTE_KANS and not any(gt == team.get(s["speler"]) and s["tijd"] < g <= s["tijd"] + 4 for g, gt in team_goals):
@@ -88,7 +100,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
     for k in kansen.get("gemist", []):
         voeg(k["tijd"], k["speler"], "Schieten", -0.4 * k["kans_xg"], f"Kans gemist door whiff (kans-xG {k['kans_xg']:.2f})")
     for c in kansen.get("creaties", []):
-        voeg(c["tijd"], c["speler"], "Passen", 0.3 * c["xg"], f"Kans gecreëerd (xA {c['xg']:.2f})", bijdrage=True)
+        voeg(c["tijd"], c["speler"], "Passen", AANDEEL_CREATIE * c["xg"], f"Kans gecreëerd (xA {c['xg']:.2f})", bijdrage=True)
     saves = [(_t, rating_sleutel) for _t, rating_sleutel in (
         ((e["payload"]["payload"] or {}).get("time", 0), sleutel((e["payload"]["payload"] or {}).get("player_id")))
         for e in events if e["meta"]["stream"] == "timeline" and ((e.get("payload") or {}).get("payload") or {}).get("kind") == "Save")]
@@ -108,6 +120,11 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         else:
             voeg(x["tijd"], x["speler"], "Balbezit", 0.5 * v,
                  f"Balverlies (kans {100 * x['eigen_voor']:.0f}% → {100 * x['eigen_na']:.0f}%, tegenstander {100 * x['na']:.0f}%)", bijdrage=True)
+    # Gevaarlijke demo's en bumps: tactische waarde volgens het dreigingsmodel (alleen het positieve deel)
+    for x in kansen.get("fysiek", []):
+        if x["waarde"] >= 0.03:
+            w = x["waarde"] if x["soort"] == "demo" else 0.5 * x["waarde"]
+            voeg(x["tijd"], x["speler"], "Duels", w, f"Gevaarlijke {x['soort']} (dreiging +{100 * x['waarde']:.0f}%)", bijdrage=True)
     fout_bij_goal = {}
     for f in kansen.get("fouten", []):
         fout_bij_goal[f["goal_tijd"]] = f["speler"]
@@ -127,7 +144,7 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         if st == "timeline":
             soort, wie = pl.get("kind"), sleutel(pl.get("player_id"))
             if soort == "Assist":
-                voeg(t, wie, "Passen", 0.25, "Assist", bijdrage=True)
+                voeg(t, wie, "Passen", ASSIST_BONUS, "Assist", bijdrage=True)
             elif soort == "Save" and wie in team:
                 # xGOT van het tegengehouden schot = wat er voorkomen werd (los van waar jij stond)
                 sch = redding_schot(t, wie, opp_schoten, team, touches_per.get(wie, []))
@@ -156,8 +173,8 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             if not any(k_s == wie and abs(k_t - (pl.get("time") or t)) < 0.5 for k_t, k_s in kans_whiffs):  # kans-whiff telt al bij Schieten
                 voeg(t, wie, "Duels", -0.04, "Whiff (bal gemist)")
         elif st == "demolition":
-            voeg(t, sleutel(pl.get("attacker")), "Duels", 0.05, "Demo gemaakt")
-            voeg(t, sleutel(pl.get("victim")), "Duels", -0.03, "Gedemoed")
+            voeg(t, sleutel(pl.get("attacker")), "Duels", 0.02, "Demo gemaakt")
+            voeg(t, sleutel(pl.get("victim")), "Duels", -0.02, "Gedemoed")
         elif st == "player_possession":
             # Betrokkenheid en controle, alleen voor het onderdeelcijfer Balbezit (geen deel van het totaal): zonder dit
             # bestond Balbezit alleen uit balverlies-straffen en scoorde wie veel aan de bal is juist laag.

@@ -129,7 +129,7 @@ const KERN = {
   passen: ['assists', 'xa', 'kansen', 'passes', 'centers'],
   balbezit: ['touches', 'bezit', 'controletijd', 'vooruit'],
   verdedigen: ['saves', 'sbv', 'gevaarweg', 'gevclear', 'clears', 'fout'],
-  duels: ['5050w', '5050v', 'eerder', 'telaat', 'whiffs', 'demos'],
+  duels: ['5050w', '5050v', 'eerder', 'telaat', 'gevdemo', 'gevbump', 'whiffs'],
   kickoffs: ['kow', 'kov'],
   boost: ['bpm', 'gem', 'gestolen', 'nul'],
   positie: ['verdediging', 'midden', 'aanval', 'afstbal'],

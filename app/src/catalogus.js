@@ -88,6 +88,8 @@ export const GROEPEN = [
       s('whiffs', 'Whiffs', 'duels.whiffs', { beter: 'laag', uitleg: 'Bal gemist terwijl hij er vlak bij was' }),
       s('eerder', 'Eerder bij de bal', 'duels.eerder_bij_bal', { uitleg: 'Races naar de bal gewonnen' }),
       s('telaat', 'Te laat bij de bal', 'duels.te_laat_bij_bal', { beter: 'laag' }),
+      s('gevdemo', 'Gevaarlijke demo\'s', 'duels.gevaarlijke_demos', { uitleg: 'Demo die de dreiging duidelijk veranderde' }),
+      s('gevbump', 'Gevaarlijke bumps', 'duels.gevaarlijke_bumps', { uitleg: 'Bump die de dreiging duidelijk veranderde' }),
       s('demos', "Demo's gemaakt", 'duels.demos_gemaakt'),
       s('demosin', "Demo's gekregen", 'duels.demos_gekregen', { beter: 'laag' }),
       s('bumps', 'Bumps', 'duels.bumps'),

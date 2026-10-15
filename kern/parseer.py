@@ -154,7 +154,8 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         })
 
     events = []
-    for e in sa.get_stats_events(str(pad))["events"]:
+    ruwe_events = sa.get_stats_events(str(pad))["events"]
+    for e in ruwe_events:
         m = e["meta"]
         stroom = m["stream"]
         if stroom not in EVENT_STREAMS:
@@ -232,7 +233,8 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         gemist = kansen.kans_xg(data, ev, pakket, rank)
     from kern import verdediging
     data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev),
-                      "verdediging": verdediging.beoordeel(data, ev)}
+                      "verdediging": verdediging.beoordeel(data, ev),
+                      "fysiek": verdediging.fysiek(data, [e for e in ruwe_events if e["meta"]["stream"] in ("demolition", "bump")])}
     voeg_kansen_toe(data)
     voeg_xgot_toe(data, ev)
     voeg_races_toe(data, ev)
@@ -306,6 +308,10 @@ def voeg_kansen_toe(data: dict) -> None:
         st["passen"]["xa"] = round(sum(c["xg"] for c in mijn), 2)
         st["passen"]["grote_kansen_gecreeerd"] = sum(1 for c in mijn if c["xg"] >= GROTE_KANS)
         st["verdedigen"]["fouten_voor_tegengoal"] = sum(1 for f in k["fouten"] if f["speler"] == i)
+        fy = [x for x in k.get("fysiek", []) if x["speler"] == i]
+        st["duels"]["gevaarlijke_demos"] = sum(1 for x in fy if x["soort"] == "demo" and x["waarde"] >= 0.03)
+        st["duels"]["gevaarlijke_bumps"] = sum(1 for x in fy if x["soort"] == "bump" and x["waarde"] >= 0.03)
+        st["duels"]["fysiek_waarde"] = round(sum(max(0.0, x["waarde"]) for x in fy), 2)
         # Dreiging vóór vs na je touch (kern/verdediging.py)
         vd = [x for x in k.get("verdediging", []) if x["speler"] == i and x["voor"] >= 0.05]
         st["verdedigen"]["gevaar_weggewerkt"] = round(sum(x["voor"] - x["na"] for x in vd), 2)

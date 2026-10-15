@@ -195,7 +195,8 @@ def creaties(data: dict, events: list[dict], kansen: list[dict]) -> list[dict]:
         # Geen tegenstander-touch tussen de pass en het moment
         if any(team.get(x[1]) not in (None, team[wie]) for x in tc if voor[-1][0] < x[0] < t):
             continue
-        uit.append({"tijd": round(voor[-1][0], 2), "speler": voor[-1][1], "ontvanger": wie, "xg": round(xg, 3), "soort": soort})
+        uit.append({"tijd": round(voor[-1][0], 2), "speler": voor[-1][1], "ontvanger": wie, "xg": round(xg, 3), "soort": soort,
+                    "moment": round(t, 2)})  # moment = tijd van het schot/de kans waar deze creatie bij hoort
     return uit
 
 

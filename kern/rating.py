@@ -9,6 +9,8 @@ Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld
              goede pass naar jou niet geraakt −0,03
   Verdedigen redding +xGOT van het tegengehouden schot (min. 0,15) · fout voor tegengoal −0,10
              tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
+             riskante double commit (beide op de bal af, niemand meer achter de bal: 3× zoveel tegengoals) −0,06
+             voor wie meeging zonder de bal te raken, of voor wie de bal afpakte van een beter staande teamgenoot
   Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans)
              demo +0,02 / gedemoed −0,02; gevaarlijke demo of bump (dreigingswinst ≥ 0,03 volgens het dreigingsmodel,
              kern/verdediging.fysiek): + die winst (demo) of de helft (bump), in de doelbijdrage
@@ -125,6 +127,10 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
         if x["waarde"] >= 0.03:
             w = x["waarde"] if x["soort"] == "demo" else 0.5 * x["waarde"]
             voeg(x["tijd"], x["speler"], "Duels", w, f"Gevaarlijke {x['soort']} (dreiging +{100 * x['waarde']:.0f}%)", bijdrage=True)
+    for x in kansen.get("teamspel", []):
+        if x["niemand_achter"]:
+            schuld = x["speler"] if x["afgepakt"] else x["maat"]
+            voeg(x["tijd"], schuld, "Verdedigen", -0.06, "Riskante double commit (niemand achter de bal)")
     fout_bij_goal = {}
     for f in kansen.get("fouten", []):
         fout_bij_goal[f["goal_tijd"]] = f["speler"]

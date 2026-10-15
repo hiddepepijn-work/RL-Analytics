@@ -231,10 +231,11 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
         pakket = joblib.load(XG_MODEL)
         kansen.kans_voor_touch(data, pakket, rank)
         gemist = kansen.kans_xg(data, ev, pakket, rank)
-    from kern import verdediging
+    from kern import teamspel, verdediging
     data["kansen"] = {"gemist": gemist, "creaties": kansen.creaties(data, ev, gemist), "fouten": kansen.fouten_voor_tegengoal(data, ev),
                       "verdediging": verdediging.beoordeel(data, ev),
-                      "fysiek": verdediging.fysiek(data, [e for e in ruwe_events if e["meta"]["stream"] in ("demolition", "bump")])}
+                      "fysiek": verdediging.fysiek(data, [e for e in ruwe_events if e["meta"]["stream"] in ("demolition", "bump")]),
+                      "teamspel": teamspel.analyse(data, ev)}
     voeg_kansen_toe(data)
     voeg_xgot_toe(data, ev)
     voeg_races_toe(data, ev)
@@ -308,6 +309,11 @@ def voeg_kansen_toe(data: dict) -> None:
         st["passen"]["xa"] = round(sum(c["xg"] for c in mijn), 2)
         st["passen"]["grote_kansen_gecreeerd"] = sum(1 for c in mijn if c["xg"] >= GROTE_KANS)
         st["verdedigen"]["fouten_voor_tegengoal"] = sum(1 for f in k["fouten"] if f["speler"] == i)
+        ts = k.get("teamspel", [])
+        rot = st.setdefault("rotatie", {})
+        rot["double_commits"] = sum(1 for x in ts if i in (x["speler"], x["maat"]))
+        rot["riskante_double_commits"] = sum(1 for x in ts if x["niemand_achter"] and i in (x["speler"], x["maat"]))
+        rot["bal_afgepakt"] = sum(1 for x in ts if x["afgepakt"] and x["speler"] == i)
         fy = [x for x in k.get("fysiek", []) if x["speler"] == i]
         st["duels"]["gevaarlijke_demos"] = sum(1 for x in fy if x["soort"] == "demo" and x["waarde"] >= 0.03)
         st["duels"]["gevaarlijke_bumps"] = sum(1 for x in fy if x["soort"] == "bump" and x["waarde"] >= 0.03)

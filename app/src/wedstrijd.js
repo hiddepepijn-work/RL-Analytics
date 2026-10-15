@@ -133,6 +133,7 @@ const KERN = {
   kickoffs: ['kow', 'kov'],
   boost: ['bpm', 'gem', 'gestolen', 'nul'],
   positie: ['verdediging', 'midden', 'aanval', 'afstbal'],
+  rotatie: ['dcrisico', 'dc', 'afgepakt', 'wissels'],
 }
 
 export function tekenTeamstats(el, data) {

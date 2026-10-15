@@ -1,8 +1,9 @@
 """Pass-model: beoordeelt de pass los van wat de ontvanger ermee doet.
 
 Stap 1 (kandidaten): per touch de balbaan (3 s) doorrekenen en per speler de aankomsttijd op elk baanpunt
-schatten. Daaruit features: hoeveel eerder kan een teamgenoot erbij zijn dan de tegenstander, hoe hoog,
-hoe ver, hoe gevaarlijk is de plek. Label = raakt een teamgenoot de bal als volgende (binnen 3,5 s)?
+schatten (baan 5,5 s, met stuiters op muren en plafond). Daaruit features: hoeveel eerder kan een teamgenoot erbij
+zijn dan de tegenstander, hoe hoog, hoe ver, hoe gevaarlijk is de plek. Label = raakt een teamgenoot de bal als
+volgende (binnen 6 s, zodat lange muur- en plafondpasses meetellen)?
 Stap 2 (kern/xpass_model.py): model leert uit die labels een eerlijke kans (xPass), zoals xG.
 Stap 3 (hier, met model): credits verdelen.
   passer    : xPass, pass-waarde (xPass × zonewaarde), passes boven verwachting, ballen naar niemand
@@ -28,6 +29,10 @@ from kern.fysica import aankomst, baan
 WORTEL = Path(__file__).resolve().parent.parent
 FPS = 30
 MIN_SNELHEID = 500
+# Lange passes via muur of plafond zijn 4–5,5 s onderweg: baan en 'aangekomen'-venster daarop afgestemd (was 3 / 3,5 s)
+BAAN_S = 5.5
+PASS_VENSTER = 6.0
+NIEUWSTE_KOLOM = "venster6"  # cache zonder deze kolom is van een oudere versie (kern/bijwerken.py)
 ZONE_PAD = WORTEL / "data" / "modellen" / "zonewaarde.json"
 MODEL_PAD = WORTEL / "data" / "modellen" / "xpass.joblib"
 FEATURES = ["marge", "marge_vroeg", "maat_tijd", "tegen_tijd", "t_punt", "z_punt", "afstand_punt",
@@ -85,7 +90,7 @@ def kandidaten_uit_replay(pad: Path, band: str = "") -> list[dict]:
         if not np.any(bp) or np.linalg.norm(bv) < MIN_SNELHEID:
             continue
         T, teken = team[passer], (1 if team[passer] == 0 else -1)
-        punten = baan(bp, bv, duur=3.0)
+        punten = baan(bp, bv, duur=BAAN_S)
         tijden = {i: aankomst(auto[f, k, :3], auto[f, k, 3:6], auto[f, k, 6] / 2.55, punten)
                   for k, i in enumerate(ids) if i != passer and np.any(auto[f, k, :3])}
         maten = [i for i in tijden if team[i] == T]
@@ -116,8 +121,9 @@ def kandidaten_uit_replay(pad: Path, band: str = "") -> list[dict]:
             "tegen_afstand_bal": round(float(min(np.linalg.norm(auto[f, kk[i], :2] - bp[:2]) for i in tegen))),
             "doel_x": round(float(punten[k, 1])), "doel_y": round(float(punten[k, 2])),
             "van_x": round(float(bp[0])), "van_y": round(float(bp[1])),
-            "compleet": int(volgende[1] in maten and volgende[0] - tt < 3.5),
-            "door_ontvanger": int(volgende[1] == ontvanger and volgende[0] - tt < 3.5),
+            "compleet": int(volgende[1] in maten and volgende[0] - tt < PASS_VENSTER),
+            "door_ontvanger": int(volgende[1] == ontvanger and volgende[0] - tt < PASS_VENSTER),
+            "venster6": 1,
         })
     return rijen
 

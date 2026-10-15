@@ -28,7 +28,7 @@ from kern.schoten import DOEL_Y, ZWAARTEKRACHT, schot_features
 KANS_SNELHEID = 1800.0
 KANS_MIN_XG = 0.10      # whiff telt pas als gemiste kans vanaf deze kans-xG
 GROTE_KANS = 0.35       # 'big chance' (Opta gebruikt ~0,35–0,4)
-CREATIE_VENSTER = 4.0
+CREATIE_VENSTER = 6.0  # was 4 s: ceiling- en lange muurpasses (4–5,5 s) vielen erbuiten
 FOUT_VENSTER = 12.0
 SPELER_STRIDE = 9
 KALIBRATIE_PAD = Path(__file__).resolve().parent.parent / "data" / "modellen" / "kans_kalibratie.json"
@@ -197,6 +197,21 @@ def creaties(data: dict, events: list[dict], kansen: list[dict]) -> list[dict]:
             continue
         uit.append({"tijd": round(voor[-1][0], 2), "speler": voor[-1][1], "ontvanger": wie, "xg": round(xg, 3), "soort": soort,
                     "moment": round(t, 2)})  # moment = tijd van het schot/de kans waar deze creatie bij hoort
+    # Geeft de game een assist, dan telt de creatie altijd (ook als er een tegenstander de bal tussendoor raakte of de
+    # pass lang onderweg was): de assist-gever krijgt de kans van het doelpunt.
+    al = {(c["ontvanger"], c["moment"]) for c in uit}
+    goals = [x for x in data.get("schoten", []) if x.get("goal")]
+    for e in events:
+        pl = (e.get("payload") or {}).get("payload") or {}
+        if e["meta"]["stream"] != "timeline" or pl.get("kind") != "Assist":
+            continue
+        gever, ta = sleutel(pl.get("player_id")), pl.get("time", 0)
+        g = min(goals, key=lambda x: abs(x["tijd"] - ta), default=None)
+        if not g or gever not in team or g["speler"] == gever or abs(g["tijd"] - ta) > 3 or (g["speler"], round(g["tijd"], 2)) in al:
+            continue
+        laatste = [x[0] for x in tc if x[1] == gever and x[0] < g["tijd"]]
+        uit.append({"tijd": round(laatste[-1] if laatste else ta, 2), "speler": gever, "ontvanger": g["speler"],
+                    "xg": round(g.get("kans", g.get("xg")) or 0, 3), "soort": "schot", "moment": round(g["tijd"], 2)})
     return uit
 
 

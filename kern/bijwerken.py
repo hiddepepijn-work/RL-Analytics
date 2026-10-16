@@ -129,9 +129,32 @@ def features_bijwerken() -> tuple[int, int]:
     return nieuw, len(index)
 
 
+def _rijen(csv_pad: Path) -> int:
+    if not csv_pad.exists():
+        return 0
+    with csv_pad.open(encoding="utf-8") as f:
+        return max(0, sum(1 for _ in f) - 1)
+
+
+def genoeg_data(model_json: str, sleutel: str, nu: int) -> bool:
+    """Alleen hertrainen als er minstens (bijna) evenveel data is als waarop het huidige model getraind is.
+    Zo vervangt een machine met minder replays (bv. de server vóór de sync) een beter model niet door een slechter."""
+    pad = WORTEL / "data" / "modellen" / model_json
+    if not pad.exists():
+        return True
+    oud = json.loads(pad.read_text(encoding="utf-8")).get(sleutel) or 0
+    return nu >= 0.98 * oud
+
+
 def trainen() -> dict:
     uit = {}
-    for mod, bestand in (("kern.xg_model", "xg.json"), ("kern.xgot_model", "xgot.json"), ("kern.xpass_model", "xpass.json")):
+    n_schoten, n_passen = _rijen(WORTEL / "data" / "features" / "schoten.csv"), _rijen(WORTEL / "data" / "features" / "passen.csv")
+    for mod, bestand, (ref_json, sleutel, nu) in (("kern.xg_model", "xg.json", ("xg.json", "schoten", n_schoten)),
+                                                  ("kern.xgot_model", "xgot.json", ("xg.json", "schoten", n_schoten)),
+                                                  ("kern.xpass_model", "xpass.json", ("xpass.json", "n", n_passen))):
+        if not genoeg_data(ref_json, sleutel, nu):
+            log(f"training {mod} overgeslagen: {nu} rijen, huidig model gebruikte er meer")
+            continue
         r = subprocess.run([PY, "-m", mod], cwd=WORTEL, check=False, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode:
             log(f"training {mod} mislukt: " + r.stderr[-1500:].replace("\n", " | "))

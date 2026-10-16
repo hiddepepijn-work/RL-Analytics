@@ -88,7 +88,7 @@ def main() -> None:
     norm["touches"] = robuust([per5(r["touches"], r) for r in rijen])  # balcontacten per 5 min (verwachting per touch)
     alle = json.loads(NORM_PAD.read_text(encoding="utf-8")) if NORM_PAD.exists() else {}
     alle[a.band] = norm
-    if "champion" in a.band or "_standaard" not in alle:
+    if a.band == "ranked-doubles_champion-1_champion-3" or "_standaard" not in alle:  # niet grand-champion!
         alle["_standaard"] = norm
     NORM_PAD.write_text(json.dumps(alle, indent=1), encoding="utf-8")
     print(f"Normen {a.band}: {len(rijen)} speler-wedstrijden")

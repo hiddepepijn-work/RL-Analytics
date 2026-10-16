@@ -11,7 +11,7 @@ Elke actie levert impact op in 'goal-equivalenten' (1,0 = één goal), ingedeeld
              tegengoal als laatste man −0,12, of −0,06 als een ander de fout maakte
              riskante double commit (beide op de bal af, niemand meer achter de bal: 3× zoveel tegengoals) −0,06
              voor wie meeging zonder de bal te raken, of voor wie de bal afpakte van een beter staande teamgenoot
-  Duels      50/50 ±0,03 · eerder/later bij de bal ±0,02 · whiff −0,04 (zonder kans)
+  Duels      50/50 ±0,03 · eerder/later bij de bal ±RACE (0,04) · whiff −0,04 (zonder kans)
              demo +0,02 / gedemoed −0,02; gevaarlijke demo of bump (dreigingswinst ≥ 0,03 volgens het dreigingsmodel,
              kern/verdediging.fysiek): + die winst (demo) of de helft (bump), in de doelbijdrage
   Kickoffs   kickoff-50/50 gewonnen/verloren ±0,06
@@ -41,14 +41,14 @@ from pathlib import Path
 WORTEL = Path(__file__).resolve().parent.parent
 NORM_PAD = WORTEL / "data" / "modellen" / "rating_norm.json"
 ONDERDELEN = ["Schieten", "Passen", "Verdedigen", "Duels", "Kickoffs", "Balbezit"]
-BASIS, SCHAAL, MIN, MAX = 6.5, 1.0, 3.0, 10.0  # schaal 1,0: ~80% van de Champions tussen 5,3 en 8,3; 8+ is bijzonder
+BASIS, SCHAAL, MIN, MAX = 6.5, 1.15, 3.0, 10.0  # 16 okt: 1,15 (was 1,0) — spreiding dichter bij analisten, ~11% ≥8 en ~3% ≥9
 START_NA = 60  # seconden speeltijd voordat er een cijfer getoond wordt
 # Terugval als er nog geen benchmark-normen zijn (ruwe schatting; per 5 min, gemiddeld en spreiding)
 STANDAARD_NORM = {"totaal": {"gem": 0.9, "sd": 0.55}, **{o: {"gem": 0.15, "sd": 0.12} for o in ONDERDELEN},
                   "Doelbijdrage": {"gem": 2.2, "sd": 1.5}, "Passen_proces": {"gem": 0.1, "sd": 0.1}}
 # Totaalcijfer: doelbijdrage in één munt + procesonderdelen elk t.o.v. de eigen norm
 # (balacties tellen in de doelbijdrage: dezelfde munt als goals, dus Balbezit is geen apart deel meer)
-DELEN = {"Doelbijdrage": 0.65, "Passen_proces": 0.12, "Duels": 0.14, "Kickoffs": 0.09}
+DELEN = {"Doelbijdrage": 0.75, "Passen_proces": 0.12, "Duels": 0.14, "Kickoffs": 0.09}  # 16 okt: doelbijdrage 0,65 → 0,75
 
 
 def sleutel(pid):
@@ -59,6 +59,7 @@ def sleutel(pid):
 
 
 GROTE_KANS = 0.35
+RACE = 0.04  # race naar de bal gewonnen/verloren (16 okt: was 0,02; netto +8 pp goalkans na een gewonnen race)
 AANDEEL_CREATIE = 0.6  # deel van de gecreëerde kans voor de aangever (de schutter de rest + uitvoering); getoetst 15 okt
 ASSIST_BONUS = 0.35    # extra voor de game-assist (de bal ging er ook echt in)
 SCHUTTER_LEVERT_IN = True  # deel van de aangever gaat af van het schot (verdelen i.p.v. dubbel tellen)
@@ -172,8 +173,8 @@ def acties(events: list[dict], schoten: list[dict], passen: list[dict], team: di
             else:
                 voeg(t, w, "Duels", 0.03, "50/50 gewonnen"); voeg(t, v, "Duels", -0.03, "50/50 verloren")
         elif st == "beaten_to_ball":
-            voeg(t, sleutel(pl.get("player")), "Duels", -0.02, "Te laat bij de bal")
-            voeg(t, sleutel(pl.get("winner")), "Duels", 0.02, "Eerder bij de bal")
+            voeg(t, sleutel(pl.get("player")), "Duels", -RACE, "Te laat bij de bal")
+            voeg(t, sleutel(pl.get("winner")), "Duels", RACE, "Eerder bij de bal")
         elif st == "whiff":
             wie = sleutel(pl.get("player"))
             if not any(k_s == wie and abs(k_t - (pl.get("time") or t)) < 0.5 for k_t, k_s in kans_whiffs):  # kans-whiff telt al bij Schieten

@@ -34,7 +34,7 @@ function statRij(stat, rij) {
   const neutraal = !stat.beter
   const p = neutraal ? rij.p : goedP(stat, rij.p)
   const [, , kl] = neutraal ? [0, 0, 'var(--tekst-2)'] : tier(p)
-  const titel = `${stat.label}: ${fmt(stat, rij.waarde)}${per5 ? ' per 5 min' : ''} · Champion-mediaan ${fmt(stat, rij.mediaan_rank)} · percentiel ${rij.p}${stat.beter === 'laag' ? ' (lager = beter, balk omgedraaid)' : neutraal ? ' (stijl, geen goed/slecht)' : ''}`
+  const titel = `${stat.label}: ${fmt(stat, rij.waarde)}${per5 ? ' per 5 min' : ''} · Champion-mediaan ${fmt(stat, rij.mediaan_rank)} · ${neutraal ? `percentiel ${rij.p} (stijl, geen goed/slecht)` : `beter dan ${p}% van de Champions${stat.beter === 'laag' ? ' (lager = beter)' : ''}`}`
   return `<div class="prij" title="${esc(titel)}">
     <span class="prij-label">${label}</span>
     <span class="prij-waarde num">${waarde}</span>
@@ -69,6 +69,7 @@ function tekenEcht(el, pr) {
 
   el.innerHTML = `
   ${pr.wedstrijden < pr.betrouwbaar_vanaf ? `<div class="banner">Gebaseerd op ${pr.wedstrijden} wedstrijden. Betrouwbaar vanaf ~${pr.betrouwbaar_vanaf}; tot die tijd zijn de banden breed. Nieuwe wedstrijden komen er automatisch bij.</div>` : ''}
+  ${pr.weggelaten ? `<div class="banner dim">Huidige vorm: je ${pr.wedstrijden} nieuwste wedstrijden (laatste ${pr.venster_dagen} dagen). ${pr.weggelaten} oudere ${pr.weggelaten === 1 ? 'telt' : 'tellen'} niet mee.</div>` : ''}
   <header class="profielkop kaart">
     <div class="avatar">${esc(initialen)}</div>
     <div class="profiel-id">

@@ -38,6 +38,8 @@ def percentiel_k(pop: np.ndarray, waarde: float, k: int, rng) -> float:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--naam", required=True)
+    ap.add_argument("--dagen", type=int, default=120, help="alleen wedstrijden van de laatste N dagen (t.o.v. de nieuwste)")
+    ap.add_argument("--max", type=int, default=40, help="hooguit de N nieuwste wedstrijden")
     a = ap.parse_args()
     rng = np.random.default_rng(0)
     from kern import accounts
@@ -67,6 +69,19 @@ def main() -> None:
     games.sort(key=lambda g: g["datum"] or "")
     if not games:
         raise SystemExit("Geen eigen wedstrijden (categorie 'mee') gevonden.")
+    # Huidige vorm: oude wedstrijden (ander niveau, oude gewoontes) niet even zwaar laten wegen als die van nu
+    from datetime import datetime, timedelta
+    def _dt(g):
+        try:
+            return datetime.strptime((g["datum"] or "")[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
+    nieuwste = max((_dt(g) for g in games if _dt(g)), default=None)
+    alle = len(games)
+    if nieuwste:
+        games = [g for g in games if _dt(g) is None or _dt(g) >= nieuwste - timedelta(days=a.dagen)]
+    games = games[-a.max:]
+    weggelaten = alle - len(games)
 
     bench_pad = WORTEL / "data" / "modellen" / f"benchmark_{BAND}.json"
     bench = json.loads(bench_pad.read_text(encoding="utf-8"))["rijen"] if bench_pad.exists() else []
@@ -102,7 +117,7 @@ def main() -> None:
 
     uit = {
         "naam": weergavenaam, "account": account["naam"] if account else a.naam, "ids": sorted(ids) if ids else [],
-        "rank": "Champion", "band": BAND, "wedstrijden": k,
+        "rank": "Champion", "band": BAND, "wedstrijden": k, "weggelaten": weggelaten, "venster_dagen": a.dagen,
         "uren": round(sum(g["tijd"] for g in games) / 3600, 1),
         "winst": sum(g["uitslag"] == "W" for g in games), "verlies": sum(g["uitslag"] == "V" for g in games),
         "benchmark_wedstrijden": len({r["replay"] for r in bench}), "betrouwbaar_vanaf": BETROUWBAAR_VANAF,

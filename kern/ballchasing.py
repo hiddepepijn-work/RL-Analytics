@@ -64,11 +64,14 @@ class Client:
                 raise
         raise RuntimeError(f"Blijft 429 geven: {url}")
 
-    def lijst(self, **filters):
-        """Itereert over replays die aan de filters voldoen (volgt de 'next'-links)."""
+    def lijst(self, max_paginas: int = 0, **filters):
+        """Itereert over replays die aan de filters voldoen (volgt de 'next'-links), hooguit max_paginas pagina's.
+        Zonder grens bladerde een zoektocht in een band met weinig 'zuivere' lobby's (bv. Bronze) urenlang door."""
         url = f"{API}/replays?" + urllib.parse.urlencode({k.replace("_", "-"): v for k, v in filters.items() if v})
-        while url:
+        pagina = 0
+        while url and (not max_paginas or pagina < max_paginas):
             data = json.loads(self._get(url))
+            pagina += 1
             yield from data.get("list", [])
             url = data.get("next")
 
@@ -83,6 +86,7 @@ def main() -> None:
     ap.add_argument("--min-rank", choices=RANKS, required=True)
     ap.add_argument("--max-rank", choices=RANKS, required=True)
     ap.add_argument("--aantal", type=int, default=100)
+    ap.add_argument("--max-paginas", type=int, default=150, help="hooguit zoveel pagina's van 200 doorzoeken per ronde")
     ap.add_argument("--seizoen", help="bv. f23 (free-to-play seizoen 23)")
     ap.add_argument("--na", help="alleen replays na datum (RFC3339, bv. 2026-09-01T00:00:00Z)")
     a = ap.parse_args()
@@ -96,7 +100,7 @@ def main() -> None:
     c = Client(token())
     binnen = 0
     with meta_pad.open("a", encoding="utf-8") as meta:
-        for r in c.lijst(playlist=a.playlist, min_rank=a.min_rank, max_rank=a.max_rank,
+        for r in c.lijst(max_paginas=a.max_paginas, playlist=a.playlist, min_rank=a.min_rank, max_rank=a.max_rank,
                          season=a.seizoen, replay_date_after=a.na, count=200,
                          sort_by="replay-date", sort_dir="desc"):
             if binnen >= a.aantal:

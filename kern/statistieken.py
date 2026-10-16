@@ -193,7 +193,7 @@ def bereken(pad: str, data: dict) -> dict:
     goals = []
     for g in sm["core"].get("goal_context", []):
         goals.append({
-            "balsnelheid": _r(g["ball_speed_at_goal"] * 0.036, 0),  # uu/s → km/h
+            "balsnelheid": _r((g.get("ball_speed_at_goal") or 0) * 0.036, 0) if g.get("ball_speed_at_goal") is not None else None,  # uu/s → km/h; ontbreekt in oude replays
             "luchttijd": _r(g.get("ball_air_time_before_goal"), 1), "opbouw": g.get("goal_buildup"),
             "laatste_man": sleutel(g.get("defending_team_most_back_player")),
         })

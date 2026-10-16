@@ -22,6 +22,7 @@ from pathlib import Path
 import subtr_actor as sa
 
 from kern import accounts
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 BRONNEN = [Path.home() / "Documents/My Games/Rocket League/TAGame/DemosEpic",
@@ -33,7 +34,9 @@ def beoordeel(p: Path, naam: str, gezien: set) -> dict:
     r = {"bestand": p.name, "pad": str(p)}
     try:
         m = sa.get_replay_meta(str(p))["replay_meta"]
-    except Exception as e:
+    except BaseException as e:
+        if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+            raise
         return r | {"oordeel": "weg", "reden": f"onleesbaar ({type(e).__name__})"}
     k = dict(m["all_headers"])
     spelers = [s["name"] for s in m["team_zero"] + m["team_one"]]

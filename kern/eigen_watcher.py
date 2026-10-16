@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 from kern.eigen_import import BRONNEN, beoordeel
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 EIGEN = WORTEL / "data" / "eigen"
@@ -55,7 +56,9 @@ def main() -> None:
         try:
             kop = dict(sa.get_replay_meta(str(bestaand))["replay_meta"]["all_headers"])
             match_ids.add(kop.get("MatchGuid") or kop.get("Id") or bestaand.stem)
-        except Exception:
+        except BaseException as e:
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             pass
     log(f"start, bewaakt {', '.join(str(b) for b in bronnen if b.exists())}{' → upload ' + a.upload if a.upload else ''}")
     while not STOP.exists():

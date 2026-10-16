@@ -25,6 +25,7 @@ import subtr_actor as sa
 
 from kern import events
 from kern.fysica import aankomst, baan
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 FPS = 30
@@ -201,7 +202,9 @@ def main() -> None:
                 continue
             gezien.add(mid)
             alle += kandidaten_uit_replay(p, p.parent.name)
-        except Exception as e:
+        except BaseException as e:
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             print(f"  overslaan {p.name}: {type(e).__name__}: {str(e)[:80]}")
         if (k + 1) % 50 == 0:
             print(f"{k + 1}/{len(replays)} replays, {len(alle)} kandidaten")

@@ -18,6 +18,7 @@ import subtr_actor as sa
 
 from kern import events as eventcache
 from kern.fysica import aankomst_richting
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 FPS = 30
@@ -210,7 +211,9 @@ def main(args: list[str]) -> None:
                 continue  # dezelfde wedstrijd door meerdere spelers geüpload
             gezien_match.add(match_id)
             alle += schoten_uit_replay(p, band)
-        except Exception as e:  # kapotte of te nieuwe replay: overslaan, niet stoppen
+        except BaseException as e:  # kapotte of te nieuwe replay: overslaan, niet stoppen
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             print(f"  overslaan {p.name}: {type(e).__name__}: {str(e)[:80]}")
         if (k + 1) % 50 == 0:
             print(f"{k + 1}/{len(replays)} replays, {len(alle)} schoten")

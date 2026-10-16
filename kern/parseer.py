@@ -14,6 +14,7 @@ import numpy as np
 import subtr_actor as sa
 
 from kern import passen as passmodule, schoten as schotmodule, statistieken
+from kern.events import replay_fout
 
 XG_MODEL = Path(__file__).resolve().parent.parent / 'data' / 'modellen' / 'xg.joblib'
 XGOT_MODEL = XG_MODEL.with_name('xgot.joblib')
@@ -394,7 +395,9 @@ def main(args: list[str]) -> None:
     for p in map(Path, a.replays):
         try:
             d = parseer(p, rank)
-        except Exception as e:  # één kapotte/afwijkende replay mag de rest niet tegenhouden
+        except BaseException as e:  # één kapotte/afwijkende replay mag de rest niet tegenhouden
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             print(f"{p.name}: overgeslagen ({type(e).__name__}: {str(e)[:80]})")
             continue
         d["meta"]["rank"] = a.rank

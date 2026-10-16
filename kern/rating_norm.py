@@ -16,6 +16,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 CACHE = WORTEL / "data" / "features" / "cache" / "rating"
@@ -35,7 +36,9 @@ def verwerk(args) -> int:
                   "schoten": d["schoten"], "passen": d["passen"], "kansen": d.get("kansen")}
         uit.write_text(json.dumps(invoer), encoding="utf-8")
         return 1
-    except Exception as e:
+    except BaseException as e:
+        if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+            raise
         uit.write_text("{}", encoding="utf-8")
         print(f"overslaan {pad.name}: {type(e).__name__}: {str(e)[:60]}", flush=True)
         return 0

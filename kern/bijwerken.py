@@ -22,6 +22,7 @@ from pathlib import Path
 import subtr_actor as sa
 
 from kern import passen, schoten
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 PY = sys.executable
@@ -74,7 +75,9 @@ def features_bijwerken() -> tuple[int, int]:
                         w = csv.DictWriter(f, fieldnames=list(rijen[0].keys())); w.writeheader(); w.writerows(rijen)
             index[p.stem] = mid
             nieuw += 1
-        except Exception as e:
+        except BaseException as e:
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             log(f"overslaan {p.name}: {type(e).__name__}: {str(e)[:80]}")
             index[p.stem] = f"fout:{p.stem}"
         if nieuw and nieuw % 25 == 0:
@@ -99,7 +102,9 @@ def features_bijwerken() -> tuple[int, int]:
                     if rijen:
                         w = csv.DictWriter(h, fieldnames=list(rijen[0].keys())); w.writeheader(); w.writerows(rijen)
                 nieuw += 1
-            except Exception as e:
+            except BaseException as e:
+                if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                    raise
                 log(f"{soort} opnieuw {stem}: {type(e).__name__}")
 
     for soort in ("schoten", "passen"):
@@ -180,7 +185,9 @@ def main() -> None:
             log("STOP-bestand gevonden, klaar."); break
         try:
             ronde(a.per_ronde, a.max, downloaden=not a.zonder_download)
-        except Exception:
+        except BaseException as e:
+            if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+                raise
             import traceback
             log("FOUT in ronde, volgende ronde probeer ik opnieuw: " + traceback.format_exc().replace("\n", " | "))
         if not a.doorlopend:

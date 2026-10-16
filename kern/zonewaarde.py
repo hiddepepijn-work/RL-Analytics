@@ -20,6 +20,7 @@ import numpy as np
 import subtr_actor as sa
 
 from kern import events
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 NX, NY = 8, 10
@@ -52,7 +53,9 @@ def waarde3(zone: dict, x, y_aanval, z):
 def _tel(p: Path):
     try:
         meta, arr = sa.get_ndarray_with_info_from_replay_filepath(str(p), ["BallRigidBody", "CurrentTime"], [], fps=STAP_FPS)
-    except Exception:
+    except BaseException as e:
+        if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+            raise
         return None
     gh = meta["column_headers"]["global_headers"]
     t = arr[:, gh.index("current time")]

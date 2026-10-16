@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from kern.fysica import aankomst_richting, baan
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 MODEL_PAD = WORTEL / "data" / "modellen" / "dreiging.joblib"
@@ -73,7 +74,9 @@ def _replay(p: Path) -> tuple[str, np.ndarray]:
     from kern import events
     try:
         ruw = sa.get_replay_frames_data(str(p))
-    except Exception:
+    except BaseException as e:
+        if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+            raise
         return p.stem, np.zeros((0, len(FEATURES) + 1), np.float32)
     fd, meta = ruw["frame_data"], ruw["meta"]
     t = np.array([float(m["time"]) for m in fd["metadata_frames"]])

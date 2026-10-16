@@ -14,6 +14,7 @@ import json
 import random
 from multiprocessing import Pool
 from pathlib import Path
+from kern.events import replay_fout
 
 WORTEL = Path(__file__).resolve().parent.parent
 CACHE = WORTEL / "data" / "features" / "cache" / "spelerstats"
@@ -65,7 +66,9 @@ def verwerk(args) -> int:
         d = parseer(pad, rank)
         uit.write_text(json.dumps(spelers_uit_data(d), ensure_ascii=False), encoding="utf-8")
         return 1
-    except Exception as e:
+    except BaseException as e:
+        if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
+            raise
         uit.write_text("[]", encoding="utf-8")
         print(f"overslaan {pad.name}: {type(e).__name__}", flush=True)
         return 0

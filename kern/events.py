@@ -17,6 +17,18 @@ MAP = WORTEL / "data" / "features" / "cache" / "events"
 STROMEN = {"touch", "goal_context", "timeline", "fifty_fifty", "kickoff", "whiff", "beaten_to_ball", "demolition", "player_possession"}
 VERSIE = "v2"  # ophogen als STROMEN verandert: oude cachebestanden worden dan opnieuw berekend
 
+# Fouten bij het lezen van één replay. subtr-actor (Rust) gooit bij sommige replays een PanicException, die géén
+# Exception-subklasse is: 'except Exception' liet die door en de updater op de server bleef daardoor crashen.
+try:
+    from pyo3_runtime import PanicException as _Paniek  # bestaat zodra pyo3 een panic heeft gezien
+except ImportError:
+    _Paniek = None
+
+
+def replay_fout(e: BaseException) -> bool:
+    """True voor gewone fouten én Rust-panics; False voor Ctrl+C / afsluiten (die moeten doorgaan)."""
+    return isinstance(e, Exception) or type(e).__name__ == "PanicException" or (_Paniek is not None and isinstance(e, _Paniek))
+
 
 @lru_cache(maxsize=8)
 def _laad(pad_str: str) -> tuple:

@@ -105,7 +105,7 @@ def ruwe_frames(pad: Path, spelers_meta: list[dict]) -> dict:
     }
 
 
-def parseer(pad: Path, rank: int | None = None) -> dict:
+def parseer(pad: Path, rank: int | None = None, subrank: str | None = None) -> dict:
     """rank = index in RANK_ORDE (bv. 5 = Champion) → rank-specifieke modellen; None = algemeen model."""
     meta, arr = sa.get_ndarray_with_info_from_replay_filepath(
         str(pad), BAL_KOLOMMEN, SPELER_KOLOMMEN, fps=FPS
@@ -245,6 +245,9 @@ def parseer(pad: Path, rank: int | None = None) -> dict:
     if rank is not None and 0 <= rank < len(RANK_ORDE):
         laag = RANK_ORDE[rank]
         band = "ranked-doubles_grand-champion-1_supersonic-legend" if laag == "grand-champion" else f"ranked-doubles_{laag}-1_{laag}-3"
+    # Subrank (bv. champion-1) gaat vóór de rank als daar een eigen norm voor is (kern/subrank.py), anders de rank
+    if subrank and rating.heeft_norm(f"sub:{subrank}"):
+        band = f"sub:{subrank}"
     data["rating"] = rating.bereken(data, ev, band)
     for sid, r in data["rating"]["spelers"].items():
         if sid in data["stats"]["spelers"]:
@@ -392,9 +395,14 @@ def main(args: list[str]) -> None:
     a = ap.parse_args(args)
     rank = RANK_ORDE.index(a.rank) if a.rank else None
     MAP_UIT.mkdir(parents=True, exist_ok=True)
+    # Eigen wedstrijden: vergelijken met de (geschatte of ingestelde) subrank van het account
+    subrank = None
+    if a.ik:
+        from kern import accounts
+        subrank = accounts.subrank(accounts.vind(a.ik))
     for p in map(Path, a.replays):
         try:
-            d = parseer(p, rank)
+            d = parseer(p, rank, subrank)
         except BaseException as e:  # één kapotte/afwijkende replay mag de rest niet tegenhouden
             if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen
                 raise

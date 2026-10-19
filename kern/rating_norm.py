@@ -23,6 +23,13 @@ CACHE = WORTEL / "data" / "features" / "cache" / "rating"
 NORM_PAD = WORTEL / "data" / "modellen" / "rating_norm.json"
 
 
+def rating_invoer(d: dict) -> dict:
+    """Wat de rating nodig heeft om normen te herberekenen zonder opnieuw te parsen (ook gebruikt door kern.benchmark)."""
+    return {"team": {s["id"]: s["team"] for s in d["spelers"]},
+            "speeltijd": {sid: r["speeltijd"] for sid, r in d["rating"]["spelers"].items()},
+            "schoten": d["schoten"], "passen": d["passen"], "kansen": d.get("kansen")}
+
+
 def verwerk(args) -> int:
     pad, rank = args
     uit = CACHE / f"{pad.stem}.json"
@@ -31,10 +38,7 @@ def verwerk(args) -> int:
     try:
         from kern.parseer import parseer
         d = parseer(pad, rank)
-        invoer = {"team": {s["id"]: s["team"] for s in d["spelers"]},
-                  "speeltijd": {sid: r["speeltijd"] for sid, r in d["rating"]["spelers"].items()},
-                  "schoten": d["schoten"], "passen": d["passen"], "kansen": d.get("kansen")}
-        uit.write_text(json.dumps(invoer), encoding="utf-8")
+        uit.write_text(json.dumps(rating_invoer(d)), encoding="utf-8")
         return 1
     except BaseException as e:
         if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen

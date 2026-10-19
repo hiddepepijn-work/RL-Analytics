@@ -117,7 +117,8 @@ def main() -> None:
 
     uit = {
         "naam": weergavenaam, "account": account["naam"] if account else a.naam, "ids": sorted(ids) if ids else [],
-        "rank": "Champion", "band": BAND, "wedstrijden": k, "weggelaten": weggelaten, "venster_dagen": a.dagen,
+        "rank": (account or {}).get("subrank_handmatig") or ((account or {}).get("rank_schatting") or {}).get("naam") or "Champion",
+        "rank_schatting": (account or {}).get("rank_schatting"), "band": BAND, "wedstrijden": k, "weggelaten": weggelaten, "venster_dagen": a.dagen,
         "uren": round(sum(g["tijd"] for g in games) / 3600, 1),
         "winst": sum(g["uitslag"] == "W" for g in games), "verlies": sum(g["uitslag"] == "V" for g in games),
         "benchmark_wedstrijden": len({r["replay"] for r in bench}), "betrouwbaar_vanaf": BETROUWBAAR_VANAF,

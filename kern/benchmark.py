@@ -57,14 +57,19 @@ def spelers_uit_data(d: dict) -> list[dict]:
 
 
 def verwerk(args) -> int:
+    """Eén keer parsen voor twee caches: spelerstats (benchmark, rank-schatter) én rating-invoer (kern.rating_norm)."""
+    from kern import rating_norm
     pad, rank = args
-    uit = CACHE / f"{pad.stem}.json"
-    if uit.exists():
+    uit, uit_rating = CACHE / f"{pad.stem}.json", rating_norm.CACHE / f"{pad.stem}.json"
+    if uit.exists() and uit_rating.exists():
         return 0
     try:
         from kern.parseer import parseer
         d = parseer(pad, rank)
         uit.write_text(json.dumps(spelers_uit_data(d), ensure_ascii=False), encoding="utf-8")
+        if not uit_rating.exists():
+            rating_norm.CACHE.mkdir(parents=True, exist_ok=True)
+            uit_rating.write_text(json.dumps(rating_norm.rating_invoer(d)), encoding="utf-8")
         return 1
     except BaseException as e:
         if not replay_fout(e):  # Ctrl+C / afsluiten: doorlaten; Rust-panic: als fout behandelen

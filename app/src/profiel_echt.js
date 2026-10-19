@@ -74,7 +74,7 @@ function tekenEcht(el, pr) {
     <div class="avatar">${esc(initialen)}</div>
     <div class="profiel-id">
       <div class="profiel-naam">${esc(pr.naam)}</div>
-      <div><span class="chip">${pr.rank}</span><span class="chip">2v2</span><span class="chip">${pr.wedstrijden} wedstrijden · ${String(pr.uren).replace('.', ',')} u</span><span class="chip">${pr.winst}W – ${pr.verlies}V</span></div>
+      <div><span class="chip" title="${pr.rank_schatting ? `Geschat uit je laatste ${pr.rank_schatting.wedstrijden} wedstrijden: het niveau van alle spelers in je lobby's (rank-schatter)` : ''}">${pr.rank}${pr.rank_schatting ? ' <span class="dim">(geschat)</span>' : ''}</span><span class="chip">2v2</span><span class="chip">${pr.wedstrijden} wedstrijden · ${String(pr.uren).replace('.', ',')} u</span><span class="chip">${pr.winst}W – ${pr.verlies}V</span></div>
       <div class="dim" style="font-size:12px;margin-top:6px">Vergeleken met ${nl(pr.benchmark_wedstrijden)} Champion-wedstrijden · tellingen per 5 min speeltijd</div>
     </div>
     ${sc ? `<div class="profiel-rating">

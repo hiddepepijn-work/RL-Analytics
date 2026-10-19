@@ -100,6 +100,8 @@ def main() -> None:
                                      text=True, encoding="utf-8", errors="replace")
                 log(f"  verwerkt: {res.stdout.strip()[-200:]}" if res.returncode == 0 else f"  FOUT: {res.stderr[-500:]}")
                 if r["oordeel"] == "mee":
+                    # subrank opnieuw schatten (telt voor de volgende wedstrijden), dan het profiel
+                    subprocess.run([sys.executable, "-m", "kern.subrank", "--account", a.naam], cwd=WORTEL, capture_output=True)
                     subprocess.run([sys.executable, "-m", "kern.profiel", "--naam", a.naam], cwd=WORTEL, capture_output=True)
         time.sleep(10)
     log("gestopt (STOP_WATCHER)")

@@ -213,6 +213,10 @@ def norm(band: str | None) -> dict:
     return STANDAARD_NORM
 
 
+def heeft_norm(sleutel: str) -> bool:
+    return NORM_PAD.exists() and sleutel in json.loads(NORM_PAD.read_text(encoding="utf-8"))
+
+
 # Live verloop (14 okt, feedback gebruiker: "je verliest steeds punten, een 10 haal je alleen als je aan het eind scoort"):
 # - Verwachting: AANDEEL_TIJD per speeltijd, de rest per balcontact. Per balcontact geeft een vlakkere lijn, maar
 #   straft betrokken spelers; getoetst tegen analisten won volledig per tijd (zie docstring bovenaan).

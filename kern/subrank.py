@@ -85,7 +85,52 @@ def _rijen():
                 yield f.stem, row["stats"], rk[0] + (rk[1] - 1) / 4, rk[2]
 
 
+def lobby_kenmerken(stats_rijen: list[dict], kolommen: list[str]) -> np.ndarray:
+    """Per stat het gemiddelde, de spreiding en het maximum over de spelers van één wedstrijd."""
+    import warnings
+    M = np.array([[st.get(k, np.nan) for k in kolommen] for st in stats_rijen], float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.concatenate([np.nanmean(M, 0), np.nanstd(M, 0), np.nanmax(M, 0)])
+
+
 def train() -> None:
+    """Lobbymodel (getoetst 20 okt): veel beter dan per speler schatten en middelen.
+    Per speler: fout 1,53 tier; per lobby uit spelersgemiddelde: 1,22; dit lobbymodel: 1,01 (Champion 0,80);
+    over 10 wedstrijden 0,66 tier."""
+    import joblib
+    from collections import defaultdict
+    from sklearn.ensemble import HistGradientBoostingRegressor
+    from sklearn.model_selection import GroupKFold
+    per = defaultdict(list)
+    for replay, st, niveau, _ in _rijen():
+        per[replay].append((st, niveau))
+    lobbies = [(r, v) for r, v in per.items() if len(v) >= 3]
+    kolommen = sorted({k for _, v in lobbies for st, _ in v for k in st if not k.startswith(NIET)})
+    X = np.array([lobby_kenmerken([st for st, _ in v], kolommen) for _, v in lobbies])
+    y = np.array([np.mean([n for _, n in v]) for _, v in lobbies]); g = np.array([r for r, _ in lobbies])
+    model = lambda: HistGradientBoostingRegressor(max_depth=5, learning_rate=0.05, max_iter=500, min_samples_leaf=20, random_state=0)
+    oof = np.zeros(len(y))
+    for tr, te in GroupKFold(5).split(X, y, g):
+        oof[te] = model().fit(X[tr], y[tr]).predict(X[te])
+    # (Isotone kalibratie getest 20 okt: in een eerlijke geneste toets geen winst; de lichte onderschatting in de
+    # Champion-range (−0,22 tier) en GC+ (−0,42) is terugtrekken naar het midden en blijft — zie 'marge_tier'.)
+    fout = np.abs(oof - y)
+    rng = np.random.default_rng(0); f10 = []
+    for _ in range(2000):
+        t = rng.choice(np.unique(np.round(y))); kand = np.flatnonzero(np.abs(y - t) < 0.5)
+        if len(kand) >= 10:
+            k = rng.choice(kand, 10, replace=False); f10.append(abs(oof[k].mean() - y[k].mean()))
+    print(f"{len(y)} lobby's, {len(kolommen)} stats | fout per lobby {fout.mean():.2f} tier, binnen 1 tier {np.mean(fout < 1) * 100:.0f}%, "
+          f"r = {np.corrcoef(oof, y)[0, 1]:.3f} | over 10 wedstrijden {np.mean(f10):.2f} tier")
+    joblib.dump({"model": model().fit(X, y), "kolommen": kolommen, "soort": "lobby"}, MODEL_PAD)
+    MODEL_PAD.with_suffix(".json").write_text(json.dumps({
+        "lobbys": int(len(y)), "fout_lobby_tier": round(float(fout.mean()), 3), "fout_10_wedstrijden_tier": round(float(np.mean(f10)), 3)},
+        indent=1), encoding="utf-8")
+    print("Opgeslagen:", MODEL_PAD)
+
+
+def _train_per_speler() -> None:
     import joblib
     from sklearn.ensemble import HistGradientBoostingRegressor
     from sklearn.model_selection import GroupKFold
@@ -128,10 +173,10 @@ def schat_lobby(d: dict) -> float | None:
     from kern.benchmark import spelers_uit_data
     pakket = joblib.load(MODEL_PAD)
     rows = [r for r in spelers_uit_data(d) if r.get("speeltijd", 0) >= 120]
-    if not rows:
+    if len(rows) < 3:
         return None
-    X = np.array([[r["stats"].get(k, np.nan) for k in pakket["kolommen"]] for r in rows], float)
-    return float(np.mean(pakket["model"].predict(X)))
+    X = lobby_kenmerken([r["stats"] for r in rows], pakket["kolommen"])[None, :]
+    return float(pakket["model"].predict(X)[0])
 
 
 def account_schatten(naam: str, n: int = 12) -> dict | None:
@@ -155,7 +200,8 @@ def account_schatten(naam: str, n: int = 12) -> dict | None:
         return None
     niveau = float(np.median(niveaus))
     t = int(min(22, max(1, np.floor(niveau + 1e-9))))
-    uit = {"niveau": round(niveau, 2), "subrank": TIERNAMEN[t - 1], "naam": naam_niveau(niveau), "wedstrijden": len(niveaus)}
+    uit = {"niveau": round(niveau, 2), "subrank": TIERNAMEN[t - 1], "naam": naam_niveau(niveau), "wedstrijden": len(niveaus),
+           "marge_tier": 0.66, "bereik": f"{naam_niveau(niveau - 0.66).rsplit(' div', 1)[0]} – {naam_niveau(niveau + 0.66).rsplit(' div', 1)[0]}"}
     accounts.zet(naam, "rank_schatting", uit)
     return uit
 

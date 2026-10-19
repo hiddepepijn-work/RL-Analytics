@@ -42,7 +42,7 @@ def main() -> None:
     ap.add_argument("--max", type=int, default=40, help="hooguit de N nieuwste wedstrijden")
     a = ap.parse_args()
     rng = np.random.default_rng(0)
-    from kern import accounts
+    from kern import accounts, subrank as subrank_mod
     account = accounts.vind(a.naam)
     ids = set(account["ids"]) if account else None
     weergavenaam = (account.get("bekende_namen") or [account["naam"]])[0] if account else a.naam
@@ -117,7 +117,8 @@ def main() -> None:
 
     uit = {
         "naam": weergavenaam, "account": account["naam"] if account else a.naam, "ids": sorted(ids) if ids else [],
-        "rank": (account or {}).get("subrank_handmatig") or ((account or {}).get("rank_schatting") or {}).get("naam") or "Champion",
+        "rank": subrank_mod.mooi((account or {}).get("subrank_handmatig") or "") or ((account or {}).get("rank_schatting") or {}).get("naam") or "Champion",
+        "rank_handmatig": bool((account or {}).get("subrank_handmatig")),
         "rank_schatting": (account or {}).get("rank_schatting"), "band": BAND, "wedstrijden": k, "weggelaten": weggelaten, "venster_dagen": a.dagen,
         "uren": round(sum(g["tijd"] for g in games) / 3600, 1),
         "winst": sum(g["uitslag"] == "W" for g in games), "verlies": sum(g["uitslag"] == "V" for g in games),

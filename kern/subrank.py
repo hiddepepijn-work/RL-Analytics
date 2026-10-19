@@ -41,6 +41,11 @@ def naam_niveau(niveau: float) -> str:
     return f"{naam} div {d}" if t < 22 else naam
 
 
+def mooi(subrank_id: str) -> str:
+    """'champion-1' → 'Champion I'."""
+    return naam_niveau(TIERNAMEN.index(subrank_id) + 1.0).rsplit(" div", 1)[0] if subrank_id in TIERNAMEN else subrank_id
+
+
 def _sleutel_bc(p: dict) -> str | None:
     pid = p.get("id") or {}
     plat = {"epic": "Epic", "steam": "Steam", "xbox": "Xbox", "switch": "Switch", "psynet": "PsyNet"}.get(pid.get("platform", ""))
